@@ -39,6 +39,13 @@ if ! command -v redis-cli >/dev/null 2>&1; then
     exit 1
 fi
 
+REDIS_CLI_MAJOR="$(redis-cli --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+if [ -n "$REDIS_CLI_MAJOR" ] && [ "$REDIS_CLI_MAJOR" -ge 8 ] 2>/dev/null; then
+    REDIS_CLI_OPTS=(--resp2)
+else
+    REDIS_CLI_OPTS=()
+fi
+
 if [ ! -x "$BINARY" ]; then
     echo "Error: binary '$BINARY' not found or not executable. Run 'make' first."
     exit 1
@@ -62,7 +69,7 @@ trap cleanup EXIT
 
 # Run one redis-cli command, return raw output (no trailing newline)
 cmd() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "$@" 2>/dev/null | tr -d '\r'
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "${REDIS_CLI_OPTS[@]}" "$@" 2>/dev/null | tr -d '\r'
 }
 
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
@@ -120,6 +127,21 @@ check_int() {
     fi
 }
 
+# check_gt DESC THRESHOLD ACTUAL  (passes when ACTUAL > THRESHOLD)
+check_gt() {
+    local desc="$1" threshold="$2" actual="$3"
+    if [ -n "$actual" ] && [ "$actual" -gt "$threshold" ] 2>/dev/null; then
+        printf "  ${GREEN}PASS${NC}  %s\n" "$desc"
+        PASS=$(( PASS + 1 ))
+    else
+        printf "  ${RED}FAIL${NC}  %s\n" "$desc"
+        printf "        expected │ > %s\n" "$threshold"
+        printf "        actual   │ %s\n" "$actual"
+        FAIL=$(( FAIL + 1 ))
+        SECTION_FAIL=$(( SECTION_FAIL + 1 ))
+    fi
+}
+
 # ── Start server ──────────────────────────────────────────────────────────────
 
 printf "${BOLD}miniDB smoke test${NC}  host=%s  port=%s\n" "$HOST" "$PORT"
@@ -165,12 +187,12 @@ section "SET — with EX (seconds TTL)"
 cmd SET smoke:ttl "temporary" EX 60 >/dev/null
 check "GET key with TTL alive"          "temporary"    "$(cmd GET smoke:ttl)"
 TTL_VAL=$(cmd TTL smoke:ttl)
-check_int "TTL returns positive seconds"  1 "$([ "$TTL_VAL" -gt 0 ] && echo 1 || echo 0)"
+check_gt "TTL returns positive seconds" 0 "$TTL_VAL"
 
 section "SET — with PX (milliseconds TTL)"
 cmd SET smoke:px "shortlived" PX 60000 >/dev/null
 PTTL_VAL=$(cmd PTTL smoke:px)
-check_int "PTTL returns positive ms"    1 "$([ "$PTTL_VAL" -gt 0 ] && echo 1 || echo 0)"
+check_gt "PTTL returns positive ms" 0 "$PTTL_VAL"
 
 section "SET — with invalid option"
 ERR=$(cmd SET smoke:str value BADOPT 99 2>&1)
@@ -274,7 +296,7 @@ section "EXPIRE / TTL / PERSIST"
 cmd SET smoke:persist "alive" >/dev/null
 check "EXPIRE returns 1 on existing key"    "1"  "$(cmd EXPIRE smoke:persist 60)"
 TTL=$(cmd TTL smoke:persist)
-check_int "TTL after EXPIRE is positive"    1 "$([ "$TTL" -gt 0 ] && echo 1 || echo 0)"
+check_gt "TTL after EXPIRE is positive" 0 "$TTL"
 check "PERSIST removes TTL, returns 1"      "1"  "$(cmd PERSIST smoke:persist)"
 check "TTL after PERSIST is -1 (no expiry)" "-1" "$(cmd TTL smoke:persist)"
 check "EXPIRE on missing key returns 0"     "0"  "$(cmd EXPIRE smoke:missing_e 60)"
@@ -284,7 +306,7 @@ check "TTL on key without expiry is -1"     "-1" "$(cmd TTL smoke:persist)"
 section "PEXPIRE / PTTL"
 cmd PEXPIRE smoke:persist 30000 >/dev/null
 PTTL=$(cmd PTTL smoke:persist)
-check_int "PTTL after PEXPIRE is positive"  1 "$([ "$PTTL" -gt 0 ] && echo 1 || echo 0)"
+check_gt "PTTL after PEXPIRE is positive" 0 "$PTTL"
 check "PTTL on missing key returns -2"      "-2" "$(cmd PTTL smoke:missing_p)"
 
 # ═════════════════════════════════════════════════════════════════════════════
