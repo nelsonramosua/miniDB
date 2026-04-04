@@ -41,7 +41,7 @@ fi
 
 REDIS_CLI_MAJOR="$(redis-cli --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
 if [ -n "$REDIS_CLI_MAJOR" ] && [ "$REDIS_CLI_MAJOR" -ge 8 ] 2>/dev/null; then
-    REDIS_CLI_OPTS=(--resp2)
+    REDIS_CLI_OPTS=(-2)
 else
     REDIS_CLI_OPTS=()
 fi
@@ -74,7 +74,7 @@ cmd() {
 
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
 cmd_raw() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning --resp2 "$@" 2>/dev/null | tr -d '\r'
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>/dev/null | tr -d '\r'
 }
 
 section() {
