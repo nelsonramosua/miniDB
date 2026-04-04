@@ -37,13 +37,22 @@ jobs:
         run: make lint-style
 
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y valgrind gcc
+      - name: Install tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y valgrind gcc redis-tools
+
+      - name: Install tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install redis
 
       - name: Build (release)
         run: make
@@ -55,27 +64,14 @@ jobs:
         run: make test
 
       - name: Valgrind memory check
+        if: runner.os == 'Linux'
         run: make valgrind
 
       - name: Integration smoke test
-        run: |
-          # Start server in background
-          ./miniDB --port 7379 --no-persist &
-          SERVER_PID=$!
-          sleep 0.5
+        run: ./scripts/smoke_test.sh 7379
 
-          # Use redis-cli if available, else nc
-          if command -v redis-cli &>/dev/null; then
-            redis-cli -p 7379 PING
-            redis-cli -p 7379 SET hello world
-            redis-cli -p 7379 GET hello
-            redis-cli -p 7379 DEL hello
-          else
-            echo -e "PING\r\n" | nc -q1 localhost 7379
-          fi
-
-          kill $SERVER_PID
-          wait $SERVER_PID 2>/dev/null || true
+      - name: Persistence test
+        run: make test-persistence
 
   docker-build:
     runs-on: ubuntu-latest
