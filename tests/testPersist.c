@@ -68,6 +68,9 @@ static int testRoundTrip(void) {
         return 0;
     }
     storeSet(srv->store, "h", h);
+    Object *st = objSetNew();
+    hashHset(&st->hash, "m1", "", 0);
+    storeSet(srv->store, "st", st);
 
     storeSet(srv->store, "ttl", mkStr("x"));
     storeSetExpire(srv->store, "ttl", nowMs() + 5000);
@@ -95,11 +98,13 @@ static int testRoundTrip(void) {
     Object *okStr = storeGet(srv->store, "k");
     Object *okList = storeGet(srv->store, "lst");
     Object *okHash = storeGet(srv->store, "h");
+    Object *okSet = storeGet(srv->store, "st");
     Object *okTtl = storeGet(srv->store, "ttl");
 
     int ok = okStr && okStr->type == OBJ_STRING && strcmp(okStr->str.ptr, "hello") == 0;
     ok &= okList && okList->type == OBJ_LIST && okList->list.size == 2;
     ok &= okHash && okHash->type == OBJ_HASH;
+    ok &= okSet && okSet->type == OBJ_SET && okSet->hash.size == 1;
     ok &= okTtl && okTtl->expireMs > nowMs();
 
     serverFree(srv);

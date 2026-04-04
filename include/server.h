@@ -31,9 +31,15 @@ typedef struct {
     int snapshotSecs;
 } ServerConfig;
 
+typedef enum {
+    SERVER_CONFIG_OK = 0,
+    SERVER_CONFIG_HELP = 1,
+    SERVER_CONFIG_ERROR = 2,
+} ServerConfigParseResult;
+
 /* Fill cfg with defaults and parse argv.
- * Returns 0 on success, 1 on invalid arguments (already printed). */
-int serverConfigParse(int argc, char **argv, ServerConfig *cfg);
+ * Returns parse status: OK, HELP shown, or ERROR (already printed). */
+ServerConfigParseResult serverConfigParse(int argc, char **argv, ServerConfig *cfg);
 
 Server *serverNew(const ServerConfig *cfg);
 void serverFree(Server *s);

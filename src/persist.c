@@ -112,7 +112,8 @@ static void saveEntry(const char *key, const Object *o, void *ud) {
         break;
     }
 
-    case OBJ_HASH: {
+    case OBJ_HASH:
+    case OBJ_SET: {
         KVHash *h = (KVHash *)&o->hash;
         CHK(writeU32(ctx->f, (uint32_t)h->size));
         for (size_t i = 0; i < h->nbuckets; i++)
@@ -260,13 +261,15 @@ int persistLoad(Server *srv) {
             }
             break;
         }
-        case OBJ_HASH: {
+        case OBJ_HASH:
+        case OBJ_SET: {
             uint32_t n;
             if (readU32(f, &n)) {
                 free(key);
                 goto err;
             }
-            o = objHashNew();
+            if (type == OBJ_HASH) o = objHashNew();
+            else o = objSetNew();
             if (!o) {
                 free(key);
                 goto err;

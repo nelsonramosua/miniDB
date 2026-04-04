@@ -33,7 +33,7 @@ RUN useradd --system --no-create-home --shell /usr/sbin/nologin minidb
 WORKDIR /app
 
 # Copy only the binary from the builder stage
-COPY --from=builder /build/kvstore .
+COPY --from=builder /build/miniDB .
 
 # Persistent data directory for snapshots
 RUN mkdir -p /data && chown minidb:minidb /data
@@ -44,5 +44,5 @@ EXPOSE 6380
 
 # Defaults: snapshot to the mounted volume every 60 s.
 # Override at runtime: docker run minidb --port 6380 --save-interval 30
-ENTRYPOINT ["./kvstore"]
-CMD ["--port", "6380", "--snapshot", "/data/minidb.snap", "--save-interval", "60"]
+ENTRYPOINT ["./miniDB"]
+CMD ["--port", "6380", "--snapshot", "/data/miniDB.snap", "--save-interval", "60"]

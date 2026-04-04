@@ -9,6 +9,7 @@ Note: these use-case apps were generated with AI and then adapted for this repos
 - `go/URLShortener`: HTTP API for URL shortening
 - `node/Analytics`: page analytics HTTP server
 - `python/APIServer`: FastAPI service for users, sessions, and queue operations
+- `c/Metrics`: native C system metrics daemon and viewer
 - `python/Tasks`: terminal task manager CLI
 
 ## Prerequisites
@@ -17,6 +18,7 @@ Note: these use-case apps were generated with AI and then adapted for this repos
 - Node.js 18+
 - Go 1.18+
 - Python 3.10+
+- GCC / Clang
 
 ## CI smoke checks
 
@@ -58,4 +60,12 @@ Python Tasks:
 cd scripts/useCases/python/Tasks
 python3 -m pip install redis
 python3 tasks.py --help
+```
+C Metrics:
+
+```bash
+cd scripts/useCases/c/Metrics
+gcc -std=c11 -Wall -Wextra -O2 -o metrics Metrics.c
+./metrics --daemon &
+./metrics --view
 ```

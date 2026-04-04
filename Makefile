@@ -1,4 +1,4 @@
-# Makefile – kvstore build system
+# Makefile – miniDB build system
 #
 # Targets:
 #   make            – build release binary
@@ -22,19 +22,21 @@ DEBUG_FLAGS   := -O0 -g3 -fsanitize=address,undefined \
 SRC_DIR   := src
 TEST_DIR  := tests
 BUILD_DIR := build
+MAIN_SRC  := miniDB.c
 INCFLAGS  := -I$(SRC_DIR) -Iinclude -I.
 
 SRCS := $(sort $(shell find $(SRC_DIR) -type f -name '*.c'))
-# Exclude main.c from test builds
-LIB_SRCS := $(filter-out $(SRC_DIR)/main.c, $(SRCS))
-STYLE_FILES := $(sort $(shell find $(SRC_DIR) include $(TEST_DIR) -type f \( -name '*.c' -o -name '*.h' \)))
-TIDY_FILES := $(sort $(SRCS) $(shell find $(TEST_DIR) -type f -name '*.c'))
+LIB_SRCS := $(SRCS)
+STYLE_FILES := $(sort $(MAIN_SRC) $(shell find $(SRC_DIR) include $(TEST_DIR) -type f \( -name '*.c' -o -name '*.h' \)))
+TIDY_FILES := $(sort $(MAIN_SRC) $(SRCS) $(shell find $(TEST_DIR) -type f -name '*.c') scripts/useCases/c/Metrics/Metrics.c)
 
 OBJS         := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 LIB_OBJS     := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(LIB_SRCS))
+MAIN_OBJ     := $(BUILD_DIR)/miniDB.o
+MAIN_DBG_OBJ := $(BUILD_DIR)/miniDB_dbg.o
 
-TARGET := kvstore
-DEBUG_TARGET := kvstore_debug
+TARGET := miniDB
+DEBUG_TARGET := miniDB_debug
 TEST_STORE_BIN := test_store
 TEST_PROTO_BIN := test_proto
 TEST_PERSIST_BIN := test_persist
@@ -44,11 +46,14 @@ TEST_PERSIST_BIN := test_persist
 .PHONY: all
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) $(MAIN_OBJ)
 	$(CC) $(CFLAGS) $(RELEASE_FLAGS) $(LDFLAGS) -o $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(RELEASE_FLAGS) $(INCFLAGS) -c -o $@ $<
+
+$(MAIN_OBJ): $(MAIN_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(RELEASE_FLAGS) $(INCFLAGS) -c -o $@ $<
 
 $(BUILD_DIR):
@@ -61,11 +66,14 @@ debug: CFLAGS += $(DEBUG_FLAGS)
 debug: RELEASE_FLAGS :=
 debug: $(DEBUG_TARGET)
 
-$(DEBUG_TARGET): $(patsubst $(BUILD_DIR)/%.o, $(BUILD_DIR)/%_dbg.o, $(OBJS))
+$(DEBUG_TARGET): $(patsubst $(BUILD_DIR)/%.o, $(BUILD_DIR)/%_dbg.o, $(OBJS)) $(MAIN_DBG_OBJ)
 	$(CC) $(CFLAGS) $(DEBUG_FLAGS) $(LDFLAGS) -o $@ $^
 
 $(BUILD_DIR)/%_dbg.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(DEBUG_FLAGS) $(INCFLAGS) -c -o $@ $<
+
+$(MAIN_DBG_OBJ): $(MAIN_SRC) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(DEBUG_FLAGS) $(INCFLAGS) -c -o $@ $<
 
 # ── Tests ────────────────────────────────────────────────────────────────────

@@ -60,7 +60,7 @@ jobs:
       - name: Integration smoke test
         run: |
           # Start server in background
-          ./kvstore --port 7379 --no-persist &
+          ./miniDB --port 7379 --no-persist &
           SERVER_PID=$!
           sleep 0.5
 
@@ -85,11 +85,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t kvstore:ci .
+        run: docker build -t minidb:ci .
 
       - name: Smoke test in Docker
         run: |
-          docker run -d --name kv -p 7379:6380 kvstore:ci
+          docker run -d --name kv -p 7379:6380 minidb:ci
           sleep 1
           echo -e "PING\r\n" | nc -q1 localhost 7379 || true
           docker stop kv && docker rm kv

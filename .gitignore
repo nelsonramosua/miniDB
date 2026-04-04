@@ -2,8 +2,8 @@
 
 # Build outputs
 build/
-kvstore
-kvstore_debug
+miniDB
+miniDB_debug
 test_store
 test_proto
 test_persist
@@ -13,7 +13,7 @@ test_persist
 
 # Runtime artifacts
 *.snap
-kvstore.snap
+miniDB.snap
 
 # JavaScript/Node
 node_modules/

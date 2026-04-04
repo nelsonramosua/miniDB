@@ -1,6 +1,6 @@
 # miniDB
 
-miniDB is a Redis-compatible in-memory key-value store written in C11.
+miniDB is a Redis-compatible in-memory key-value store written in pure C.
 It supports a practical subset of Redis commands, speaks the RESP wire protocol,
 handles TTL expiration, and persists data to disk via periodic snapshots.
 
@@ -10,16 +10,61 @@ format, and small independently-testable modules.
 
 ---
 
+## Quick start (60 seconds)
+
+```bash
+make
+./miniDB --no-persist
+```
+
+In another terminal:
+
+```bash
+redis-cli -p 6380 PING
+redis-cli -p 6380 SET hello world
+redis-cli -p 6380 GET hello
+```
+
+Run tests:
+
+```bash
+make test
+```
+
+Explore integration examples:
+
+```bash
+ls scripts/useCases
+```
+
+---
+
+## Table of contents
+
+- [Architecture overview](#architecture-overview)
+- [Command reference](#command-reference)
+- [Building and running](#building-and-running)
+- [Testing and diagnostics](#testing-and-diagnostics)
+- [Benchmarking](#benchmarking)
+- [Code style](#code-style)
+- [Docker](#docker)
+- [Using miniDB from application code](#using-minidb-from-application-code)
+- [Real use cases in this repository](#real-use-cases-in-this-repository)
+- [Persistence](#persistence)
+- [Continuous integration](#continuous-integration)
+- [Repository layout](#repository-layout)
+- [Known limits](#known-limits)
+
+---
+
 ## Architecture overview
 
 ```
         client (redis-cli, redis-benchmark, any RESP client)
               │  TCP / RESP
-              ▼
-         net.c  ──  poll() event loop, non-blocking I/O, client lifecycle
+         net.c     ──  poll() event loop, non-blocking I/O, client lifecycle
               │
-              ▼
-       command/  ──  dispatch table → per-command handlers
+         command/  ──  dispatch table → per-command handlers
               │
          server.c  ──  config parsing, periodic tick (TTL purge + snapshot scheduling)
               │
@@ -108,6 +153,19 @@ HVALS   key                                 → array of values
 
 Hash buckets resize at 0.75 load factor (same policy as the top-level store).
 
+### Set
+
+```
+SADD      key member [member ...] → number of new members added
+SREM      key member [member ...] → number of members removed
+SISMEMBER key member              → 1 if member, 0 if missing
+SMEMBERS  key                     → array of all members
+SCARD     key                     → number of members
+SUNION    key [key ...]           → members present in any set
+SINTER    key [key ...]           → members present in all sets
+SDIFF     key [key ...]           → members present in first, absent in others
+```
+
 ### Server and diagnostics
 
 ```
@@ -151,23 +209,23 @@ Optional (for full dev workflow):
 ### Build
 
 ```bash
-make           # release binary → ./kvstore
-make debug     # ASan + UBSan build → ./kvstore_debug
+make           # release binary → ./miniDB
+make debug     # ASan + UBSan build → ./miniDB_debug
 ```
 
 ### Run
 
 ```bash
-./kvstore
+./miniDB
 ```
 
-Defaults: port `6380`, snapshot `kvstore.snap`, save interval `300 s`.
+Defaults: port `6380`, snapshot `miniDB.snap`, save interval `300 s`.
 
 ### CLI options
 
 ```
 --port PORT              TCP port to listen on        (default: 6380)
---snapshot PATH          Snapshot file path           (default: kvstore.snap)
+--snapshot PATH          Snapshot file path           (default: miniDB.snap)
 --save-interval SECS     Seconds between snapshots, 0 = off  (default: 300)
 --no-persist             Disable persistence entirely
 --help
@@ -175,10 +233,10 @@ Defaults: port `6380`, snapshot `kvstore.snap`, save interval `300 s`.
 
 ```bash
 # No persistence (useful for testing)
-./kvstore --no-persist
+./miniDB --no-persist
 
 # Custom port, fast snapshot cadence, explicit path
-./kvstore --port 7390 --snapshot /tmp/minidb.snap --save-interval 30
+./miniDB --port 7390 --snapshot /tmp/miniDB.snap --save-interval 30
 ```
 
 ---
@@ -280,7 +338,7 @@ docker run -p 6380:6380 -v $(pwd)/data:/data minidb
 
 # Custom options
 docker run -p 7380:7380 -v $(pwd)/data:/data minidb \
-  --port 7380 --snapshot /data/minidb.snap --save-interval 60
+  --port 7380 --snapshot /data/miniDB.snap --save-interval 60
 
 # No persistence
 docker run -p 6380:6380 minidb --no-persist
@@ -343,6 +401,7 @@ Use cases live under `scripts/useCases/`:
 - `scripts/useCases/go/URLShortener` (Go HTTP URL shortener)
 - `scripts/useCases/python/APIServer` (FastAPI integration service)
 - `scripts/useCases/python/Tasks` (Python terminal task manager)
+- `scripts/useCases/c/Metrics` (Native C system metrics daemon and viewer)
 
 Use-case docs:
 
@@ -350,6 +409,7 @@ Use-case docs:
 - `scripts/useCases/node/README.md`
 - `scripts/useCases/go/README.md`
 - `scripts/useCases/python/README.md`
+- `scripts/useCases/c/README.md`
 
 ### Python FastAPI use case (APIServer)
 
@@ -429,8 +489,9 @@ and on pull requests:
 ## Repository layout
 
 ```
+miniDB.c                entry point: server lifecycle
+
 src/
-  main.c                 entry point: server lifecycle (5 lines)
   net.c                  poll loop, accept/read/write, client lifecycle
   server.c               ServerConfig parsing, server context, periodic tick
   store.c                top-level hash table (key → Object*)
@@ -443,6 +504,7 @@ src/
     commandString.c      SET, GET, DEL, EXISTS, TTL, INCR, APPEND, SETNX, …
     commandList.c        LPUSH, RPUSH, LPOP, RPOP, LLEN, LRANGE
     commandHash.c        HSET, HGET, HDEL, HLEN, HGETALL, HKEYS, HVALS
+    commandSet.c         SADD, SREM, SISMEMBER, SMEMBERS, SCARD, SUNION, …
 
 include/
   object.h               Object, KVList, KVHash types and lifecycle

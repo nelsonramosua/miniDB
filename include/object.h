@@ -20,6 +20,7 @@ typedef enum {
     OBJ_STRING = 0,
     OBJ_LIST = 1,
     OBJ_HASH = 2,
+    OBJ_SET = 3,
 } ObjType;
 
 /* ── KVList: intrusive doubly-linked list ───────────────────────────────── */
@@ -75,6 +76,7 @@ typedef struct Object {
 Object *objStrNew(const char *s, size_t len); /* copies s */
 Object *objListNew(void);
 Object *objHashNew(void);
+Object *objSetNew(void);
 void objFree(Object *o);
 int objExpired(const Object *o); /* 1 if TTL has elapsed, 0 otherwise */
 

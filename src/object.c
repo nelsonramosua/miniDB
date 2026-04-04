@@ -62,6 +62,19 @@ Object *objHashNew(void) {
     return o;
 }
 
+Object *objSetNew(void) {
+    Object *o = calloc(1, sizeof(*o));
+    if (!o) return NULL;
+    o->type = OBJ_SET;
+    o->hash.nbuckets = KVHASH_INIT_BUCKETS;
+    o->hash.buckets = calloc(KVHASH_INIT_BUCKETS, sizeof(struct HEntry *));
+    if (!o->hash.buckets) {
+        free(o);
+        return NULL;
+    }
+    return o;
+}
+
 int objExpired(const Object *o) {
     if (!o || o->expireMs == 0) return 0;
     return nowMs() >= o->expireMs;
@@ -101,6 +114,7 @@ void objFree(Object *o) {
         listFreeAll(&o->list);
         break;
     case OBJ_HASH:
+    case OBJ_SET:
         hashFreeAll(&o->hash);
         break;
     }

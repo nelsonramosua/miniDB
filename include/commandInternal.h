@@ -73,6 +73,22 @@ static inline Object *getOrCreateHash(Server *srv, const char *key, RespBuf *buf
     return o;
 }
 
+static inline Object *getOrCreateSet(Server *srv, const char *key, RespBuf *buf) {
+    Object *o = storeGet(srv->store, key);
+    if (!o) {
+        o = objSetNew();
+        if (!o) {
+            respErr(buf, "OOM");
+            return NULL;
+        }
+        storeSet(srv->store, key, o);
+    } else if (o->type != OBJ_SET) {
+        respWrongType(buf);
+        return NULL;
+    }
+    return o;
+}
+
 /* ── Integer parsing helpers ─────────────────────────────────────────────── */
 
 /* Strict strtoll: fails if any non-numeric chars, overflow, or empty string. */

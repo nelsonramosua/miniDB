@@ -2,21 +2,21 @@
 set -euo pipefail
 
 PORT="${1:-7390}"
-SNAP="${2:-/tmp/minidb_persist_test.snap}"
-LOG1="${3:-/tmp/minidb_persist_test_1.log}"
-LOG2="${4:-/tmp/minidb_persist_test_2.log}"
+SNAP="${2:-/tmp/miniDB_persist_test.snap}"
+LOG1="${3:-/tmp/miniDB_persist_test_1.log}"
+LOG2="${4:-/tmp/miniDB_persist_test_2.log}"
 
 if ! command -v redis-cli >/dev/null 2>&1; then
     echo "redis-cli not found. Install redis-tools first." >&2
     exit 1
 fi
 
-if [[ ! -x ./kvstore ]]; then
-    echo "kvstore binary not found. Run 'make' first." >&2
+if [[ ! -x ./miniDB ]]; then
+    echo "miniDB binary not found. Run 'make' first." >&2
     exit 1
 fi
 
-pkill -f '^./kvstore' >/dev/null 2>&1 || true
+pkill -f '^./miniDB' >/dev/null 2>&1 || true
 rm -f "${SNAP}" "${SNAP}.tmp" "${LOG1}" "${LOG2}"
 
 cleanup() {
@@ -25,7 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-./kvstore --port "${PORT}" --snapshot "${SNAP}" --save-interval 1 >"${LOG1}" 2>&1 &
+./miniDB --port "${PORT}" --snapshot "${SNAP}" --save-interval 1 >"${LOG1}" 2>&1 &
 PID1=$!
 sleep 0.5
 
@@ -44,7 +44,7 @@ if [[ ! -f "${SNAP}" ]]; then
     exit 1
 fi
 
-./kvstore --port "${PORT}" --snapshot "${SNAP}" --save-interval 0 >"${LOG2}" 2>&1 &
+./miniDB --port "${PORT}" --snapshot "${SNAP}" --save-interval 0 >"${LOG2}" 2>&1 &
 PID2=$!
 sleep 0.5
 

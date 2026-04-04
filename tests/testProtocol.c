@@ -210,6 +210,42 @@ static Server *mkServer(void) {
     return serverNew(&cfg);
 }
 
+static int testSetOpsProtocol(void) {
+    Server *srv = mkServer();
+    char *r;
+    int ok = 1;
+
+    r = dispatch(srv, "SADD set str1 str2 str1\r\n");
+    ok = ok && r && strncmp(r, ":2\r\n", 4) == 0;
+    free(r);
+
+    r = dispatch(srv, "SCARD set\r\n");
+    ok = ok && r && strncmp(r, ":2\r\n", 4) == 0;
+    free(r);
+
+    r = dispatch(srv, "SISMEMBER set str1\r\n");
+    ok = ok && r && strncmp(r, ":1\r\n", 4) == 0;
+    free(r);
+
+    r = dispatch(srv, "SISMEMBER set str3\r\n");
+    ok = ok && r && strncmp(r, ":0\r\n", 4) == 0;
+    free(r);
+
+    r = dispatch(srv, "SADD set2 str2 str3\r\n");
+    free(r);
+
+    r = dispatch(srv, "SINTER set set2\r\n");
+    ok = ok && r && strstr(r, "str2") != NULL && strstr(r, "str1") == NULL;
+    free(r);
+
+    r = dispatch(srv, "SDIFF set set2\r\n");
+    ok = ok && r && strstr(r, "str1") != NULL && strstr(r, "str2") == NULL;
+    free(r);
+
+    serverFree(srv);
+    return ok;
+}
+
 static int testWrongtypePrefix(void) {
     Server *srv = mkServer();
     char *r = dispatch(srv, "SET strkey hello\r\n");
@@ -671,6 +707,7 @@ int main(void) {
     TEST(testDbsizeRenameFlushall());
     TEST(testSetNxXxOptions());
     TEST(testScan());
+    TEST(testSetOpsProtocol());
     printf("\n%d/%d tests passed\n", gPass, gTests);
     return gPass == gTests ? 0 : 1;
 }

@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./scripts/smoke_test.sh [PORT]          # default port 6380
-#   BINARY=./kvstore_debug ./scripts/smoke_test.sh 7399
+#   BINARY=./miniDB_debug ./scripts/smoke_test.sh 7399
 #
 # Requires: redis-cli (from the redis-tools package)
 #   Ubuntu/Debian:  sudo apt install redis-tools
@@ -19,7 +19,7 @@ set -uo pipefail
 
 PORT="${1:-6380}"
 HOST="${HOST:-127.0.0.1}"
-BINARY="${BINARY:-./kvstore}"
+BINARY="${BINARY:-./miniDB}"
 SERVER_PID=""
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ printf "binary: %s\n" "$BINARY"
 pkill -f "$BINARY.*--port $PORT" 2>/dev/null || true
 sleep 0.1
 
-"$BINARY" --port "$PORT" --no-persist >/tmp/minidb_smoke.log 2>&1 &
+"$BINARY" --port "$PORT" --no-persist >/tmp/miniDB_smoke.log 2>&1 &
 SERVER_PID=$!
 
 # Wait for the server to be ready (up to 3s)
@@ -138,7 +138,7 @@ for i in $(seq 1 30); do
     sleep 0.1
     if [ "$i" -eq 30 ]; then
         echo "Error: server did not start within 3s."
-        cat /tmp/minidb_smoke.log
+        cat /tmp/miniDB_smoke.log
         exit 1
     fi
 done
@@ -393,9 +393,62 @@ HKEYS_MISSING=$(cmd HKEYS smoke:missing_h 2>&1)
 check "HKEYS on missing key returns empty array" "" "$HKEYS_MISSING"
 
 # ═════════════════════════════════════════════════════════════════════════════
+section "SETS — SADD / SMEMBERS / SISMEMBER / SCARD"
+cmd FLUSHALL
+check "SADD new" "3" "$(cmd SADD set1 a b c)"
+check "SADD existing" "1" "$(cmd SADD set1 c d)"
+check_int "SCARD" "4" "$(cmd SCARD set1)"
+check "SISMEMBER true" "1" "$(cmd SISMEMBER set1 a)"
+check "SISMEMBER false" "0" "$(cmd SISMEMBER set1 z)"
+check "SISMEMBER non-existent" "0" "$(cmd SISMEMBER noset a)"
+check_int "SCARD non-existent" "0" "$(cmd SCARD noset)"
+# Note: SMEMBERS order is non-deterministic (hash iteration), so test length only
+check_int "SMEMBERS count" "4" "$(cmd SMEMBERS set1 | wc -w)"
+
+section "SREM"
+check "SREM existing" "2" "$(cmd SREM set1 a b)"
+check "SREM non-existent member" "0" "$(cmd SREM set1 a)"
+check_int "SCARD after srem" "2" "$(cmd SCARD set1)"
+check "SREM non-existent set" "0" "$(cmd SREM noset a)"
+
+section "SUNION"
+cmd FLUSHALL
+cmd SADD s1 a b c
+cmd SADD s2 c d e
+cmd SADD s3 e f g
+check_int "SUNION count" "7" "$(cmd SUNION s1 s2 s3 | wc -w)"
+check_int "SUNION missing key" "7" "$(cmd SUNION s1 s2 s3 missing | wc -w)"
+
+section "SINTER"
+check_int "SINTER empty on missing" "0" "$(cmd SINTER s1 missing | wc -w)"
+check_int "SINTER s1 s2 count" "1" "$(cmd SINTER s1 s2 | wc -w)"
+check_contains "SINTER s1 s2 contains c" "c" "$(cmd SINTER s1 s2)"
+cmd SADD s2 b
+check_int "SINTER s1 s2 after add" "2" "$(cmd SINTER s1 s2 | wc -w)"
+
+section "SDIFF"
+cmd FLUSHALL
+cmd SADD s1 a b c d
+cmd SADD s2 c d e
+cmd SADD s3 b
+# SDIFF s1 s2 s3 -> a
+check_int "SDIFF count" "1" "$(cmd SDIFF s1 s2 s3 | wc -w)"
+check_contains "SDIFF contains a" "a" "$(cmd SDIFF s1 s2 s3)"
+check_int "SDIFF with missing" "3" "$(cmd SDIFF s1 missing s3 | wc -w)"
+
+# ═════════════════════════════════════════════════════════════════════════════
 section "WRONGTYPE errors"
+
 # smoke:type:s is a string, smoke:type:l is a list, smoke:type:h is a hash
+
+# Setup wrongtype types correctly
+cmd SET smoke:type:s "a string"
+cmd LPUSH smoke:type:l "a" "list"
+cmd HSET smoke:type:h "a" "hash"
+
 ERR_LIST_ON_STR=$(cmd LPUSH smoke:type:s item 2>&1)
+
+
 check_contains "LPUSH on string key -> WRONGTYPE"    "WRONGTYPE"  "$ERR_LIST_ON_STR"
 ERR_STR_ON_LIST=$(cmd GET smoke:type:l 2>&1)
 check_contains "GET on list key -> WRONGTYPE"        "WRONGTYPE"  "$ERR_STR_ON_LIST"
@@ -431,7 +484,7 @@ printf "\n${BOLD}Results: %d/%d tests passed${NC}\n" "$PASS" "$TOTAL"
 
 if [ "$FAIL" -gt 0 ]; then
     printf "${RED}%d test(s) failed.${NC}\n" "$FAIL"
-    printf "Server log: /tmp/minidb_smoke.log\n"
+    printf "Server log: /tmp/miniDB_smoke.log\n"
     exit 1
 else
     printf "${GREEN}All tests passed.${NC}\n"

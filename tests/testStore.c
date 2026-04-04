@@ -164,6 +164,19 @@ static int testHashOps(void) {
     return ok;
 }
 
+static int testSetOps(void) {
+    Object *o = objSetNew();
+    hashHset(&o->hash, "alice", "", 0);
+    hashHset(&o->hash, "bob", "", 0);
+    size_t vlen;
+    char *v = hashHget(&o->hash, "alice", &vlen);
+    int ok = v && o->hash.size == 2;
+    hashHdel(&o->hash, "bob");
+    ok &= (o->hash.size == 1);
+    objFree(o);
+    return ok;
+}
+
 static int testHashResize(void) {
     /* Insert enough fields to cross the 0.75 load factor at 8 buckets (>6).
      * Before fix: all 100 fields crammed into 8 buckets (avg chain 12.5).
@@ -242,6 +255,7 @@ int main(void) {
     TEST(testResize());
     TEST(testListOps());
     TEST(testHashOps());
+    TEST(testSetOps());
     TEST(testHashResize());
     TEST(testPexpire());
     TEST(testStoreForeach());

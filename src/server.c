@@ -28,48 +28,48 @@ static int parseIntArg(const char *s, int min, int max, int *out) {
 static void usage(const char *prog) {
     fprintf(stderr,
             "Usage: %s [options]\n"
-            "  --port PORT            TCP port to listen on  (default: 6380)\n"
-            "  --snapshot PATH        Snapshot file path     (default: kvstore.snap)\n"
+            "  --port PORT            TCP port to listen on    (default: 6380)\n"
+            "  --snapshot PATH        Snapshot file path       (default: miniDB.snap)\n"
             "  --save-interval SECS   Snapshot interval, 0=off (default: 300)\n"
             "  --no-persist           Disable persistence entirely\n"
             "  --help                 Show this message\n",
             prog);
 }
 
-int serverConfigParse(int argc, char **argv, ServerConfig *cfg) {
-    if (!cfg) return 1;
+ServerConfigParseResult serverConfigParse(int argc, char **argv, ServerConfig *cfg) {
+    if (!cfg) return SERVER_CONFIG_ERROR;
 
     cfg->port = 6380;
-    cfg->snapshotPath = "kvstore.snap";
+    cfg->snapshotPath = "miniDB.snap";
     cfg->snapshotSecs = 300;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
             if (!parseIntArg(argv[++i], 1, 65535, &cfg->port)) {
                 fprintf(stderr, "Invalid --port: %s\n", argv[i]);
-                return 1;
+                return SERVER_CONFIG_ERROR;
             }
         } else if (strcmp(argv[i], "--snapshot") == 0 && i + 1 < argc) {
             cfg->snapshotPath = argv[++i];
         } else if (strcmp(argv[i], "--save-interval") == 0 && i + 1 < argc) {
             if (!parseIntArg(argv[++i], 0, INT_MAX, &cfg->snapshotSecs)) {
                 fprintf(stderr, "Invalid --save-interval: %s\n", argv[i]);
-                return 1;
+                return SERVER_CONFIG_ERROR;
             }
         } else if (strcmp(argv[i], "--no-persist") == 0) {
             cfg->snapshotPath = NULL;
             cfg->snapshotSecs = 0;
         } else if (strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
-            return 0;
+            return SERVER_CONFIG_HELP;
         } else {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             usage(argv[0]);
-            return 1;
+            return SERVER_CONFIG_ERROR;
         }
     }
 
-    return 0;
+    return SERVER_CONFIG_OK;
 }
 
 Server *serverNew(const ServerConfig *cfg) {

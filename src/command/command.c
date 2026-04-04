@@ -72,6 +72,7 @@ static const CmdEntry CMD_TABLE[] = {
     {"RPOP", 2, 2, cmdRpop},
     {"LLEN", 2, 2, cmdLlen},
     {"LRANGE", 4, 4, cmdLrange},
+    {"LTRIM", 4, 4, cmdLtrim},
 
     /* ── Hash ──────────────────────────────────── */
     {"HSET", 4, -1, cmdHset},
@@ -81,6 +82,16 @@ static const CmdEntry CMD_TABLE[] = {
     {"HGETALL", 2, 2, cmdHgetall},
     {"HKEYS", 2, 2, cmdHkeys},
     {"HVALS", 2, 2, cmdHvals},
+
+    /* ── Set ───────────────────────────────────── */
+    {"SADD", 3, -1, cmdSadd},
+    {"SMEMBERS", 2, 2, cmdSmembers},
+    {"SISMEMBER", 3, 3, cmdSismember},
+    {"SREM", 3, -1, cmdSrem},
+    {"SCARD", 2, 2, cmdScard},
+    {"SUNION", 2, -1, cmdSunion},
+    {"SINTER", 2, -1, cmdSinter},
+    {"SDIFF", 2, -1, cmdSdiff},
 
     {NULL, 0, 0, NULL},
 };

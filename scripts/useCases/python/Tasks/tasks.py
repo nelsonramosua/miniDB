@@ -222,7 +222,7 @@ def main() -> None:
         R.ping()
     except redis.exceptions.ConnectionError:
         die("cannot connect to miniDB on localhost:6380\n"
-            "       start:  ./kvstore --port 6380")
+            "       start:  ./miniDB --port 6380")
 
     dispatch = {
         "add":   do_add,

@@ -77,6 +77,7 @@ int cmdLpop(Server *, const Request *, RespBuf *);
 int cmdRpop(Server *, const Request *, RespBuf *);
 int cmdLlen(Server *, const Request *, RespBuf *);
 int cmdLrange(Server *, const Request *, RespBuf *);
+int cmdLtrim(Server *, const Request *, RespBuf *);
 
 /* Hash */
 int cmdHset(Server *, const Request *, RespBuf *);
@@ -86,5 +87,15 @@ int cmdHlen(Server *, const Request *, RespBuf *);
 int cmdHgetall(Server *, const Request *, RespBuf *);
 int cmdHkeys(Server *, const Request *, RespBuf *);
 int cmdHvals(Server *, const Request *, RespBuf *);
+
+/* Set */
+int cmdSadd(Server *, const Request *, RespBuf *);
+int cmdSmembers(Server *, const Request *, RespBuf *);
+int cmdSismember(Server *, const Request *, RespBuf *);
+int cmdSrem(Server *, const Request *, RespBuf *);
+int cmdScard(Server *, const Request *, RespBuf *);
+int cmdSunion(Server *, const Request *, RespBuf *);
+int cmdSinter(Server *, const Request *, RespBuf *);
+int cmdSdiff(Server *, const Request *, RespBuf *);
 
 #endif /* COMMAND_H */
