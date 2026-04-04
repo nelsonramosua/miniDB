@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Detect use-case changes
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             usecases:
