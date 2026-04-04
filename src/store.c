@@ -142,49 +142,29 @@ int storeDel(Store *s, const char *key) {
     return 0;
 }
 
-int storeRename(Store *s, const char *src, const char *dst) {
-    if (strcmp(src, dst) == 0) return storeExists(s, src);
+Object *storeDetach(Store *s, const char *key) {
+    size_t idx = bucketIdx(s, key);
+    StoreEntry **pp = &s->buckets[idx];
 
-    size_t srcIdx = bucketIdx(s, src);
-    StoreEntry **srcPp = &s->buckets[srcIdx];
-    StoreEntry *srcEntry = NULL;
-
-    while (*srcPp) {
-        if (strcmp((*srcPp)->key, src) == 0) {
-            srcEntry = *srcPp;
-            *srcPp = srcEntry->next;
-            break;
-        }
-        srcPp = &(*srcPp)->next;
-    }
-    if (!srcEntry) return 0;
-
-    size_t dstIdx = bucketIdx(s, dst);
-    StoreEntry **dstPp = &s->buckets[dstIdx];
-    while (*dstPp) {
-        if (strcmp((*dstPp)->key, dst) == 0) {
-            StoreEntry *del = *dstPp;
-            *dstPp = del->next;
-            entryFree(del, 1);
+    while (*pp) {
+        if (strcmp((*pp)->key, key) == 0) {
+            StoreEntry *del = *pp;
+            *pp = del->next;
+            Object *o = del->val;
+            free(del->key);
+            free(del);
             s->size--;
-            break;
+            if (objExpired(o)) {
+                objFree(o);
+                return NULL;
+            }
+            return o;
         }
-        dstPp = &(*dstPp)->next;
+        pp = &(*pp)->next;
     }
-
-    char *newKey = strdup(dst);
-    if (!newKey) {
-        srcEntry->next = s->buckets[srcIdx];
-        s->buckets[srcIdx] = srcEntry;
-        return 0;
-    }
-
-    free(srcEntry->key);
-    srcEntry->key = newKey;
-    srcEntry->next = s->buckets[dstIdx];
-    s->buckets[dstIdx] = srcEntry;
-    return 1;
+    return NULL;
 }
+
 
 int storeExists(Store *s, const char *key) {
     return storeGet(s, key) != NULL;

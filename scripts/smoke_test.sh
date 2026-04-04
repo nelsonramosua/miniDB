@@ -60,14 +60,14 @@ trap cleanup EXIT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-# Run one redis-cli command, return raw output. Combine stderr so error messages are visible.
+# Run one redis-cli command, return raw output (no trailing newline)
 cmd() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "$@" 2>&1 | tr -d '\r'
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "$@" 2>/dev/null | tr -d '\r'
 }
 
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
 cmd_raw() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning --resp2 "$@" 2>&1 | tr -d '\r'
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning --resp2 "$@" 2>/dev/null | tr -d '\r'
 }
 
 section() {
@@ -134,7 +134,7 @@ SERVER_PID=$!
 
 # Wait for the server to be ready (up to 3s)
 for i in $(seq 1 30); do
-    if cmd PING 2>/dev/null | grep -q PONG; then break; fi
+    if cmd PING | grep -q PONG; then break; fi
     sleep 0.1
     if [ "$i" -eq 30 ]; then
         echo "Error: server did not start within 3s."
@@ -316,6 +316,8 @@ SCAN_CURSOR=$(echo "$SCAN_PAGE" | head -n 1)
 check_int "SCAN returns cursor line" 1 "$([ -n "$SCAN_CURSOR" ] && echo 1 || echo 0)"
 check_contains "SCAN returns keyspace entries" "keys:" "$SCAN_PAGE"
 SCAN_ALL=$(cmd SCAN 0 MATCH "keys:*" COUNT 100)
+SCAN_ALL_CURSOR=$(echo "$SCAN_ALL" | head -n 1)
+check "SCAN full pass cursor is 0" "0" "$SCAN_ALL_CURSOR"
 check_contains "SCAN full pass contains keys:a" "keys:a" "$SCAN_ALL"
 check_contains "SCAN full pass contains keys:b" "keys:b" "$SCAN_ALL"
 check_contains "SCAN full pass contains keys:c" "keys:c" "$SCAN_ALL"
@@ -394,7 +396,7 @@ check "HKEYS on missing key returns empty array" "" "$HKEYS_MISSING"
 
 # ═════════════════════════════════════════════════════════════════════════════
 section "SETS — SADD / SMEMBERS / SISMEMBER / SCARD"
-cmd FLUSHALL
+cmd DEL set1 s1 s2 s3 >/dev/null
 check "SADD new" "3" "$(cmd SADD set1 a b c)"
 check "SADD existing" "1" "$(cmd SADD set1 c d)"
 check_int "SCARD" "4" "$(cmd SCARD set1)"
@@ -412,10 +414,10 @@ check_int "SCARD after srem" "2" "$(cmd SCARD set1)"
 check "SREM non-existent set" "0" "$(cmd SREM noset a)"
 
 section "SUNION"
-cmd FLUSHALL
-cmd SADD s1 a b c
-cmd SADD s2 c d e
-cmd SADD s3 e f g
+cmd DEL s1 s2 s3 >/dev/null
+cmd SADD s1 a b c >/dev/null
+cmd SADD s2 c d e >/dev/null
+cmd SADD s3 e f g >/dev/null
 check_int "SUNION count" "7" "$(cmd SUNION s1 s2 s3 | wc -w)"
 check_int "SUNION missing key" "7" "$(cmd SUNION s1 s2 s3 missing | wc -w)"
 
@@ -423,14 +425,14 @@ section "SINTER"
 check_int "SINTER empty on missing" "0" "$(cmd SINTER s1 missing | wc -w)"
 check_int "SINTER s1 s2 count" "1" "$(cmd SINTER s1 s2 | wc -w)"
 check_contains "SINTER s1 s2 contains c" "c" "$(cmd SINTER s1 s2)"
-cmd SADD s2 b
+cmd SADD s2 b >/dev/null
 check_int "SINTER s1 s2 after add" "2" "$(cmd SINTER s1 s2 | wc -w)"
 
 section "SDIFF"
-cmd FLUSHALL
-cmd SADD s1 a b c d
-cmd SADD s2 c d e
-cmd SADD s3 b
+cmd DEL s1 s2 s3 >/dev/null
+cmd SADD s1 a b c d >/dev/null
+cmd SADD s2 c d e >/dev/null
+cmd SADD s3 b >/dev/null
 # SDIFF s1 s2 s3 -> a
 check_int "SDIFF count" "1" "$(cmd SDIFF s1 s2 s3 | wc -w)"
 check_contains "SDIFF contains a" "a" "$(cmd SDIFF s1 s2 s3)"
@@ -442,9 +444,9 @@ section "WRONGTYPE errors"
 # smoke:type:s is a string, smoke:type:l is a list, smoke:type:h is a hash
 
 # Setup wrongtype types correctly
-cmd SET smoke:type:s "a string"
-cmd LPUSH smoke:type:l "a" "list"
-cmd HSET smoke:type:h "a" "hash"
+cmd SET smoke:type:s "a string" >/dev/null
+cmd LPUSH smoke:type:l "a" "list" >/dev/null
+cmd HSET smoke:type:h "a" "hash" >/dev/null
 
 ERR_LIST_ON_STR=$(cmd LPUSH smoke:type:s item 2>&1)
 

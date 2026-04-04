@@ -39,6 +39,7 @@ int cmdClient(Server *, const Request *, RespBuf *);
 int cmdCommand(Server *, const Request *, RespBuf *);
 int cmdConfig(Server *, const Request *, RespBuf *);
 int cmdInfo(Server *, const Request *, RespBuf *);
+int cmdHello(Server *, const Request *, RespBuf *);
 
 /* String / key-space */
 int cmdSet(Server *, const Request *, RespBuf *);
