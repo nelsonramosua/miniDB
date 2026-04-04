@@ -217,6 +217,8 @@ make test-persistence
 instance and checks expected responses. Requires `redis-cli`.
 
 ```bash
+make smoke-test
+
 ./scripts/smoke_test.sh          # default port 6380
 ./scripts/smoke_test.sh 7399     # custom port
 ```
@@ -315,58 +317,6 @@ r.rpush('jobs', 'task_1', 'task_2')
 job = r.lpop('jobs')                  # b'task_1'
 ```
 
-### Python app real (CLI)
-
-The repository includes a practical example app at
-`scripts/tools/pythonUseCase.py` with real workflows:
-
-- user registry (`HSET`)
-- login sessions with TTL (`SET EX`)
-- login rate limit (`INCR` + `EXPIRE`)
-- job queue (`RPUSH` / `LPOP`)
-- keyspace listing (`SCAN`)
-- server metrics (`INFO`)
-
-```bash
-python3 scripts/tools/pythonUseCase.py demo
-
-# individual commands
-python3 scripts/tools/pythonUseCase.py create-user 42 Nelson admin
-python3 scripts/tools/pythonUseCase.py login 42 127.0.0.1
-python3 scripts/tools/pythonUseCase.py queue-status
-python3 scripts/tools/pythonUseCase.py worker-once
-```
-
-### Python app real (HTTP API with FastAPI)
-
-For service-to-service integration, use `scripts/tools/pythonApiServer.py`.
-It exposes endpoints for users, login/session, queue processing, and metrics.
-
-Install dependencies:
-
-```bash
-python3 -m pip install -r scripts/tools/requirements.txt
-```
-
-Run API server:
-
-```bash
-uvicorn scripts.tools.pythonApiServer:app --host 0.0.0.0 --port 8080 --reload
-```
-
-Quick flow (example):
-
-```bash
-curl -s http://127.0.0.1:8080/health
-curl -s -X POST http://127.0.0.1:8080/users \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id":"42","name":"Nelson","role":"admin"}'
-curl -s -X POST http://127.0.0.1:8080/login \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id":"42","client_ip":"127.0.0.1"}'
-curl -s http://127.0.0.1:8080/metrics
-```
-
 ### Node.js (ioredis)
 
 ```js
@@ -383,6 +333,58 @@ await r.quit();
 ```bash
 docker run -d -p 6380:6380 -v $(pwd)/data:/data minidb
 # then connect any client to localhost:6380
+```
+
+## Real use cases in this repository
+
+Use cases live under `scripts/useCases/`:
+
+- `scripts/useCases/node/Analytics` (Node.js HTTP analytics service)
+- `scripts/useCases/go/URLShortener` (Go HTTP URL shortener)
+- `scripts/useCases/python/APIServer` (FastAPI integration service)
+- `scripts/useCases/python/Tasks` (Python terminal task manager)
+
+Use-case docs:
+
+- `scripts/useCases/README.md`
+- `scripts/useCases/node/README.md`
+- `scripts/useCases/go/README.md`
+- `scripts/useCases/python/README.md`
+
+### Python FastAPI use case (APIServer)
+
+Install dependencies:
+
+```bash
+python3 -m pip install -r scripts/useCases/python/APIServer/requirements.txt
+```
+
+Run API server:
+
+```bash
+cd scripts/useCases/python/APIServer
+uvicorn pythonApiServer:app --host 0.0.0.0 --port 8080 --reload
+```
+
+Quick flow (example):
+
+```bash
+curl -s http://127.0.0.1:8080/health
+curl -s -X POST http://127.0.0.1:8080/users \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"42","name":"Nelson","role":"admin"}'
+curl -s -X POST http://127.0.0.1:8080/login \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"42","client_ip":"127.0.0.1"}'
+curl -s http://127.0.0.1:8080/metrics
+```
+
+### Python CLI use case (Tasks)
+
+```bash
+cd scripts/useCases/python/Tasks
+python3 -m pip install redis
+python3 tasks.py --help
 ```
 
 ---
@@ -420,6 +422,7 @@ and on pull requests:
 | `style-check` | `clang-format` dry-run + `clang-tidy` naming checks |
 | `build-and-test` | release build → debug build (ASan/UBSan) → unit tests → valgrind → integration smoke test |
 | `docker-build` | Docker image build + container smoke test (depends on `build-and-test`) |
+| `usecases-smoke` | conditional smoke checks for Node/Go/Python use cases (runs only when use-case paths change) |
 
 ---
 

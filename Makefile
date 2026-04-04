@@ -102,6 +102,10 @@ benchmark:
 test-persistence: $(TARGET)
 	./scripts/test_persistence.sh 7390
 
+.PHONY: smoke-test
+smoke-test: $(TARGET)
+	./scripts/smoke_test.sh
+
 .PHONY: format
 format:
 	@command -v clang-format >/dev/null 2>&1 || { echo "clang-format not installed"; exit 1; }
