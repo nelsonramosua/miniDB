@@ -13,8 +13,10 @@
 #include "include/net.h"
 
 #include <stdio.h>
+#include <signal.h>
 
 int main(int argc, char **argv) {
+    signal(SIGPIPE, SIG_IGN);
     ServerConfig cfg;
     ServerConfigParseResult parseResult = serverConfigParse(argc, argv, &cfg);
     if (parseResult == SERVER_CONFIG_HELP) return 0;

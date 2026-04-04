@@ -60,14 +60,14 @@ trap cleanup EXIT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-# Run one redis-cli command, return raw output (no trailing newline)
+# Run one redis-cli command, return raw output. Combine stderr so error messages are visible.
 cmd() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "$@" 2>/dev/null
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "$@" 2>&1 | tr -d '\r'
 }
 
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
 cmd_raw() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning --resp2 "$@" 2>/dev/null
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning --resp2 "$@" 2>&1 | tr -d '\r'
 }
 
 section() {

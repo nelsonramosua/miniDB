@@ -68,7 +68,9 @@ jobs:
         run: make valgrind
 
       - name: Integration smoke test
-        run: ./scripts/smoke_test.sh 7379
+        run: |
+          sed -i 's/2>\/dev\/null//g' scripts/smoke_test.sh || true
+          ./scripts/smoke_test.sh 7379
 
       - name: Persistence test
         run: make test-persistence
