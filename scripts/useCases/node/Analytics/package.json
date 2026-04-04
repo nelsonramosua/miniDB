@@ -8,7 +8,7 @@
     "start": "node analytics.js"
   },
   "dependencies": {
-    "redis": "^4.7.0"
+    "redis": "^5.11.0"
   },
   "engines": {
     "node": ">=18.0.0"
