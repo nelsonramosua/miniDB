@@ -1,0 +1,8 @@
+# Core C implementation
+/src/ @nelsonramosua
+/include/ @nelsonramosua
+/tests/ @nelsonramosua
+
+# CI and automation
+/.github/ @nelsonramosua
+/scripts/ci/ @nelsonramosua

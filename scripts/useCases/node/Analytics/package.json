@@ -1,0 +1,16 @@
+{
+  "name": "minidb-analytics",
+  "version": "1.0.0",
+  "description": "Page analytics server backed by miniDB",
+  "type": "module",
+  "main": "analytics.js",
+  "scripts": {
+    "start": "node analytics.js"
+  },
+  "dependencies": {
+    "redis": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

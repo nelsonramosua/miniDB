@@ -1,0 +1,22 @@
+# miniDB clang-format configuration
+BasedOnStyle: LLVM
+Language: Cpp
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+BreakBeforeBraces: Attach
+
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortFunctionsOnASingleLine: Empty
+
+ColumnLimit: 120
+
+PointerAlignment: Right
+SpaceBeforeParens: ControlStatements
+
+SortIncludes: Never
