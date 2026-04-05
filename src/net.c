@@ -265,12 +265,12 @@ void netRun(Server *srv) {
             int close = 0;
 
             if (pfds[pi].revents & POLLNVAL) { close = 1; }
-            if (!close && (pfds[pi].revents & POLLIN))
+            if (!close && (pfds[pi].revents & (POLLIN | POLLHUP | POLLERR)))
                 if (!clientRead(srv, clients[i])) close = 1;
             if (!close && (pfds[pi].revents & POLLOUT))
                 if (!clientWrite(clients[i])) close = 1;
-            if (!close && (pfds[pi].revents & (POLLHUP | POLLERR)))
-                if (clients[i]->out.len == 0) close = 1;
+            if (!close && (pfds[pi].revents & (POLLHUP | POLLERR)) && clients[i]->out.len == 0)
+                close = 1;
 
             if (close) {
                 fprintf(stderr, "[net] -client fd=%d\n", clients[i]->fd);
