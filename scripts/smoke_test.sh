@@ -69,12 +69,16 @@ trap cleanup EXIT
 
 # Run one redis-cli command, return raw output (no trailing newline)
 cmd() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "${REDIS_CLI_OPTS[@]}" "$@" 2>/dev/null | tr -d '\r'
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "${REDIS_CLI_OPTS[@]}" "$@" 2>&1 \
+        | tr -d '\r' \
+        | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$"
 }
 
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
 cmd_raw() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>/dev/null | tr -d '\r'
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>&1 \
+        | tr -d '\r' \
+        | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$"
 }
 
 # Count non-empty, whitespace-separated items in a portable way.
