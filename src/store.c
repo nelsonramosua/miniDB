@@ -149,15 +149,15 @@ Object *storeDetach(Store *s, const char *key) {
             StoreEntry *e = *pp;
             if (objExpired(e->val)) {
                 *pp = e->next;
-                entryFree(e, 1);  // expired: free it
+                entryFree(e, 1); // expired: free it
                 s->size--;
                 return NULL;
             }
             *pp = e->next;
             Object *val = e->val;
-            entryFree(e, 0);  // freeVal=0 → keep the value alive
+            entryFree(e, 0); // freeVal=0 → keep the value alive
             s->size--;
-            return val;       // caller owns this now
+            return val; // caller owns this now
         }
         pp = &(*pp)->next;
     }

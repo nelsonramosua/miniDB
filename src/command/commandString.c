@@ -134,16 +134,25 @@ int cmdExists(Server *srv, const Request *req, RespBuf *buf) {
 int cmdRename(Server *srv, const Request *req, RespBuf *buf) {
     const char *src = req->argv[1], *dst = req->argv[2];
     if (strcmp(src, dst) == 0) {
-        if (!storeExists(srv->store, src)) { respErr(buf, "no such key"); return 1; }
-        respOk(buf); return 1;
+        if (!storeExists(srv->store, src)) {
+            respErr(buf, "no such key");
+            return 1;
+        }
+        respOk(buf);
+        return 1;
     }
-    Object *o = storeDetach(srv->store, src);  // safe: no free
-    if (!o) { respErr(buf, "no such key"); return 1; }
+    Object *o = storeDetach(srv->store, src); // safe: no free
+    if (!o) {
+        respErr(buf, "no such key");
+        return 1;
+    }
     if (!storeSet(srv->store, dst, o)) {
-        objFree(o);  // OOM: we still own it, must free
-        respErr(buf, "OOM"); return 1;
+        objFree(o); // OOM: we still own it, must free
+        respErr(buf, "OOM");
+        return 1;
     }
-    respOk(buf); return 1;
+    respOk(buf);
+    return 1;
 }
 
 /* ── TTL / EXPIRE ────────────────────────────────────────────────────────── *

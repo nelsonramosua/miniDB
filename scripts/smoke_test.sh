@@ -7,7 +7,6 @@
 #
 # Requires: redis-cli (from the redis-tools package)
 #   Ubuntu/Debian:  sudo apt install redis-tools
-#   macOS:          brew install redis
 #
 # The script starts the server, exercises every command, checks expected
 # responses, then stops the server.  Exit code is 0 on all-pass, 1 on any
@@ -35,15 +34,8 @@ fi
 
 if ! command -v redis-cli >/dev/null 2>&1; then
     echo "Error: redis-cli not found."
-    echo "Install with:  sudo apt install redis-tools   or   brew install redis"
+    echo "Install with:  sudo apt install redis-tools"
     exit 1
-fi
-
-REDIS_CLI_MAJOR="$(redis-cli --version 2>/dev/null | grep -oE '[0-9]+' | head -1)"
-if [ -n "$REDIS_CLI_MAJOR" ] && [ "$REDIS_CLI_MAJOR" -ge 8 ] 2>/dev/null; then
-    REDIS_CLI_OPTS=(-2)
-else
-    REDIS_CLI_OPTS=()
 fi
 
 if [ ! -x "$BINARY" ]; then
@@ -67,33 +59,14 @@ trap cleanup EXIT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-# Run redis-cli once (used internally by cmd/cmd_raw).
-cmd_once() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "${REDIS_CLI_OPTS[@]}" "$@" 2>&1 \
-        | tr -d '\r' \
-    | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$|^(\\(error\\) )?NOPROTO unsupported protocol version$"
-}
-
 # Run one redis-cli command, return raw output (no trailing newline)
 cmd() {
-    cmd_once "$@"
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "$@" 2>/dev/null
 }
 
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
 cmd_raw() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>&1 \
-        | tr -d '\r' \
-    | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$|^(\\(error\\) )?NOPROTO unsupported protocol version$"
-}
-
-# Count non-empty, whitespace-separated items in a portable way.
-count_items() {
-    local data="$1"
-    if [ -z "$data" ]; then
-        echo 0
-        return
-    fi
-    printf "%s\n" "$data" | tr -s '[:space:]' '\n' | grep -c .
+    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning --resp2 "$@" 2>/dev/null
 }
 
 section() {
@@ -146,21 +119,6 @@ check_int() {
     fi
 }
 
-# check_gt DESC THRESHOLD ACTUAL  (passes when ACTUAL > THRESHOLD)
-check_gt() {
-    local desc="$1" threshold="$2" actual="$3"
-    if [ -n "$actual" ] && [ "$actual" -gt "$threshold" ] 2>/dev/null; then
-        printf "  ${GREEN}PASS${NC}  %s\n" "$desc"
-        PASS=$(( PASS + 1 ))
-    else
-        printf "  ${RED}FAIL${NC}  %s\n" "$desc"
-        printf "        expected │ > %s\n" "$threshold"
-        printf "        actual   │ %s\n" "$actual"
-        FAIL=$(( FAIL + 1 ))
-        SECTION_FAIL=$(( SECTION_FAIL + 1 ))
-    fi
-}
-
 # ── Start server ──────────────────────────────────────────────────────────────
 
 printf "${BOLD}miniDB smoke test${NC}  host=%s  port=%s\n" "$HOST" "$PORT"
@@ -206,12 +164,12 @@ section "SET — with EX (seconds TTL)"
 cmd SET smoke:ttl "temporary" EX 60 >/dev/null
 check "GET key with TTL alive"          "temporary"    "$(cmd GET smoke:ttl)"
 TTL_VAL=$(cmd TTL smoke:ttl)
-check_gt "TTL returns positive seconds" 0 "$TTL_VAL"
+check_int "TTL returns positive seconds"  1 "$([ "$TTL_VAL" -gt 0 ] && echo 1 || echo 0)"
 
 section "SET — with PX (milliseconds TTL)"
 cmd SET smoke:px "shortlived" PX 60000 >/dev/null
 PTTL_VAL=$(cmd PTTL smoke:px)
-check_gt "PTTL returns positive ms" 0 "$PTTL_VAL"
+check_int "PTTL returns positive ms"    1 "$([ "$PTTL_VAL" -gt 0 ] && echo 1 || echo 0)"
 
 section "SET — with invalid option"
 ERR=$(cmd SET smoke:str value BADOPT 99 2>&1)
@@ -244,11 +202,7 @@ cmd DEL smoke:renA smoke:renB >/dev/null
 DBSIZE_BEFORE=$(cmd DBSIZE)
 cmd SET smoke:renA hello >/dev/null
 DBSIZE_AFTER_SET=$(cmd DBSIZE)
-DBSIZE_DIFF=0
-if [[ "$DBSIZE_BEFORE" =~ ^-?[0-9]+$ ]] && [[ "$DBSIZE_AFTER_SET" =~ ^-?[0-9]+$ ]]; then
-    DBSIZE_DIFF=$((DBSIZE_AFTER_SET - DBSIZE_BEFORE))
-fi
-check_int "DBSIZE increments after SET"     1 "$DBSIZE_DIFF"
+check_int "DBSIZE increments after SET"     1 "$((DBSIZE_AFTER_SET - DBSIZE_BEFORE))"
 check "RENAME returns OK"                   "OK" "$(cmd RENAME smoke:renA smoke:renB)"
 check "RENAME moved value"                  "hello" "$(cmd GET smoke:renB)"
 check "RENAME removed old key"              ""   "$(cmd GET smoke:renA)"
@@ -259,10 +213,6 @@ check "DBSIZE after FLUSHALL is zero"       "0"  "$(cmd DBSIZE)"
 cmd SET smoke:str "hello world" >/dev/null
 cmd SET smoke:ttl "temporary" EX 60 >/dev/null
 cmd SET smoke:px "shortlived" PX 60000 >/dev/null
-cmd MSET keys:a 1 keys:b 2 keys:c 3 >/dev/null
-cmd MSET smoke:mset1 alpha smoke:mset2 beta >/dev/null
-cmd SET smoke:counter 6 >/dev/null
-cmd SET smoke:persist alive >/dev/null
 
 # ═════════════════════════════════════════════════════════════════════════════
 section "MSET / MGET"
@@ -323,7 +273,7 @@ section "EXPIRE / TTL / PERSIST"
 cmd SET smoke:persist "alive" >/dev/null
 check "EXPIRE returns 1 on existing key"    "1"  "$(cmd EXPIRE smoke:persist 60)"
 TTL=$(cmd TTL smoke:persist)
-check_gt "TTL after EXPIRE is positive" 0 "$TTL"
+check_int "TTL after EXPIRE is positive"    1 "$([ "$TTL" -gt 0 ] && echo 1 || echo 0)"
 check "PERSIST removes TTL, returns 1"      "1"  "$(cmd PERSIST smoke:persist)"
 check "TTL after PERSIST is -1 (no expiry)" "-1" "$(cmd TTL smoke:persist)"
 check "EXPIRE on missing key returns 0"     "0"  "$(cmd EXPIRE smoke:missing_e 60)"
@@ -333,7 +283,7 @@ check "TTL on key without expiry is -1"     "-1" "$(cmd TTL smoke:persist)"
 section "PEXPIRE / PTTL"
 cmd PEXPIRE smoke:persist 30000 >/dev/null
 PTTL=$(cmd PTTL smoke:persist)
-check_gt "PTTL after PEXPIRE is positive" 0 "$PTTL"
+check_int "PTTL after PEXPIRE is positive"  1 "$([ "$PTTL" -gt 0 ] && echo 1 || echo 0)"
 check "PTTL on missing key returns -2"      "-2" "$(cmd PTTL smoke:missing_p)"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -360,11 +310,11 @@ KEYS_Q=$(cmd KEYS "keys:?")
 check_contains "KEYS keys:? matches single char"  "keys:a"  "$KEYS_Q"
 
 section "SCAN"
-SCAN_PAGE=$(cmd SCAN 0 COUNT 200)
+SCAN_PAGE=$(cmd SCAN 0 MATCH "keys:*" COUNT 2)
 SCAN_CURSOR=$(echo "$SCAN_PAGE" | head -n 1)
 check_int "SCAN returns cursor line" 1 "$([ -n "$SCAN_CURSOR" ] && echo 1 || echo 0)"
 check_contains "SCAN returns keyspace entries" "keys:" "$SCAN_PAGE"
-SCAN_ALL=$(cmd SCAN 0 COUNT 200)
+SCAN_ALL=$(cmd SCAN 0 MATCH "keys:*" COUNT 100)
 check_contains "SCAN full pass contains keys:a" "keys:a" "$SCAN_ALL"
 check_contains "SCAN full pass contains keys:b" "keys:b" "$SCAN_ALL"
 check_contains "SCAN full pass contains keys:c" "keys:c" "$SCAN_ALL"
@@ -452,7 +402,7 @@ check "SISMEMBER false" "0" "$(cmd SISMEMBER set1 z)"
 check "SISMEMBER non-existent" "0" "$(cmd SISMEMBER noset a)"
 check_int "SCARD non-existent" "0" "$(cmd SCARD noset)"
 # Note: SMEMBERS order is non-deterministic (hash iteration), so test length only
-check_int "SMEMBERS count" "4" "$(count_items "$(cmd SMEMBERS set1)")"
+check_int "SMEMBERS count" "4" "$(cmd SMEMBERS set1 | wc -w)"
 
 section "SREM"
 check "SREM existing" "2" "$(cmd SREM set1 a b)"
@@ -465,15 +415,15 @@ cmd FLUSHALL
 cmd SADD s1 a b c
 cmd SADD s2 c d e
 cmd SADD s3 e f g
-check_int "SUNION count" "7" "$(count_items "$(cmd SUNION s1 s2 s3)")"
-check_int "SUNION missing key" "7" "$(count_items "$(cmd SUNION s1 s2 s3 missing)")"
+check_int "SUNION count" "7" "$(cmd SUNION s1 s2 s3 | wc -w)"
+check_int "SUNION missing key" "7" "$(cmd SUNION s1 s2 s3 missing | wc -w)"
 
 section "SINTER"
-check_int "SINTER empty on missing" "0" "$(count_items "$(cmd SINTER s1 missing)")"
-check_int "SINTER s1 s2 count" "1" "$(count_items "$(cmd SINTER s1 s2)")"
+check_int "SINTER empty on missing" "0" "$(cmd SINTER s1 missing | wc -w)"
+check_int "SINTER s1 s2 count" "1" "$(cmd SINTER s1 s2 | wc -w)"
 check_contains "SINTER s1 s2 contains c" "c" "$(cmd SINTER s1 s2)"
 cmd SADD s2 b
-check_int "SINTER s1 s2 after add" "2" "$(count_items "$(cmd SINTER s1 s2)")"
+check_int "SINTER s1 s2 after add" "2" "$(cmd SINTER s1 s2 | wc -w)"
 
 section "SDIFF"
 cmd FLUSHALL
@@ -481,9 +431,9 @@ cmd SADD s1 a b c d
 cmd SADD s2 c d e
 cmd SADD s3 b
 # SDIFF s1 s2 s3 -> a
-check_int "SDIFF count" "1" "$(count_items "$(cmd SDIFF s1 s2 s3)")"
+check_int "SDIFF count" "1" "$(cmd SDIFF s1 s2 s3 | wc -w)"
 check_contains "SDIFF contains a" "a" "$(cmd SDIFF s1 s2 s3)"
-check_int "SDIFF with missing" "3" "$(count_items "$(cmd SDIFF s1 missing s3)")"
+check_int "SDIFF with missing" "3" "$(cmd SDIFF s1 missing s3 | wc -w)"
 
 # ═════════════════════════════════════════════════════════════════════════════
 section "WRONGTYPE errors"

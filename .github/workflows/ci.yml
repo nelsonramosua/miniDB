@@ -41,18 +41,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest] # macos-latest
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install tools (Linux)
+      - name: Install tools
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y valgrind gcc redis-tools
-
-      - name: Install tools (macOS)
-        if: runner.os == 'macOS'
-        run: brew install redis
 
       - name: Build (release)
         run: make

@@ -284,8 +284,7 @@ void netRun(Server *srv) {
                 if (!clientRead(srv, clients[i])) close = 1;
             if (!close && (pfds[pi].revents & POLLOUT))
                 if (!clientWrite(clients[i])) close = 1;
-            if (!close && (pfds[pi].revents & (POLLHUP | POLLERR)) && clients[i]->out.len == 0)
-                close = 1;
+            if (!close && (pfds[pi].revents & (POLLHUP | POLLERR)) && clients[i]->out.len == 0) close = 1;
 
             if (close) {
                 fprintf(stderr, "[net] -client fd=%d\n", clients[i]->fd);
