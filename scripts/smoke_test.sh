@@ -71,7 +71,7 @@ trap cleanup EXIT
 cmd_once() {
     redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "${REDIS_CLI_OPTS[@]}" "$@" 2>&1 \
         | tr -d '\r' \
-        | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$"
+    | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$|^(\\(error\\) )?NOPROTO unsupported protocol version$"
 }
 
 # Run one redis-cli command, return raw output (no trailing newline)
@@ -83,7 +83,7 @@ cmd() {
 cmd_raw() {
     redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>&1 \
         | tr -d '\r' \
-        | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$"
+    | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$|^(\\(error\\) )?NOPROTO unsupported protocol version$"
 }
 
 # Count non-empty, whitespace-separated items in a portable way.

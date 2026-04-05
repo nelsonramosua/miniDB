@@ -29,7 +29,7 @@ int cmdPing(Server *srv, const Request *req, RespBuf *buf) {
 int cmdHello(Server *srv, const Request *req, RespBuf *buf) {
     (void)srv;
     (void)req;
-    respOk(buf);
+    respErr(buf, "NOPROTO unsupported protocol version");
     return 1;
 }
 
