@@ -67,18 +67,45 @@ trap cleanup EXIT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-# Run one redis-cli command, return raw output (no trailing newline)
-cmd() {
+# Run redis-cli once (used internally by cmd/cmd_raw).
+cmd_once() {
     redis-cli -h "$HOST" -p "$PORT" --no-auth-warning "${REDIS_CLI_OPTS[@]}" "$@" 2>&1 \
         | tr -d '\r' \
         | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$"
 }
 
+# Run one redis-cli command, return raw output (no trailing newline)
+cmd() {
+    local out=""
+    local i
+    for i in 1 2 3; do
+        out="$(cmd_once "$@")"
+        if echo "$out" | grep -Eq '^Error: (Connection reset by peer|Server closed the connection)$'; then
+            sleep 0.05
+            continue
+        fi
+        printf "%s" "$out"
+        return 0
+    done
+    printf "%s" "$out"
+}
+
 # cmd_raw: same but with --resp2 for exact wire output (for error prefix checks)
 cmd_raw() {
-    redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>&1 \
-        | tr -d '\r' \
-        | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$"
+    local out=""
+    local i
+    for i in 1 2 3; do
+        out="$(redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>&1 \
+            | tr -d '\r' \
+            | grep -Ev "^(\\(error\\) )?ERR unknown command 'HELLO'$")"
+        if echo "$out" | grep -Eq '^Error: (Connection reset by peer|Server closed the connection)$'; then
+            sleep 0.05
+            continue
+        fi
+        printf "%s" "$out"
+        return 0
+    done
+    printf "%s" "$out"
 }
 
 # Count non-empty, whitespace-separated items in a portable way.
