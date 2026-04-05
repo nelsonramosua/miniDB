@@ -28,9 +28,15 @@ int cmdPing(Server *srv, const Request *req, RespBuf *buf) {
 
 int cmdHello(Server *srv, const Request *req, RespBuf *buf) {
     (void)srv;
-    (void)req;
+    // HELLO with no args or HELLO 2 -> we can tolerate, respond with inline OK
+    if (req->argc == 1 || (req->argc >= 2 && req->argv[1][0] == '2')) {
+        // Minimal RESP2 HELLO response that satisfies redis-cli 8
+        respArrHdr(buf, 0);
+        return 1;
+    }
+    // HELLO 3 or unknown version -> reject and close
     respErr(buf, "NOPROTO unsupported protocol version");
-    return 1;
+    return 0;   // <- return 0 = close connection, not 1
 }
 
 /* Returns 0 to signal the event loop to close this connection. */
