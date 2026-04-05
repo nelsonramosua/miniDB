@@ -116,6 +116,8 @@ static void handleSignal(int sig) {
 
 /* Read from socket -> parse commands -> dispatch. Returns 0 to close. */
 static int clientRead(Server *srv, Client *c) {
+    int peerClosed = 0;
+
     /* Grow inbuf if needed */
     if (c->inlen + 1 >= c->incap) {
         size_t newCap = c->incap * 2;
@@ -134,17 +136,17 @@ static int clientRead(Server *srv, Client *c) {
     }
 
     ssize_t n = read(c->fd, c->inbuf + c->inlen, (c->incap - 1) - c->inlen);
-    if (n <= 0) {
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return 1;
-        if (n == 0) {
-            /* Peer closed write-side. Keep connection while we still have
-             * buffered output to flush back to the client. */
-            return c->out.len > 0 ? 1 : 0;
-        }
+    if (n < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return 1;
         return 0; /* hard error */
     }
-    c->inlen += (size_t)n;
-    c->inbuf[c->inlen] = '\0';
+    if (n == 0) {
+        /* Peer closed write-side. We still must parse any buffered bytes. */
+        peerClosed = 1;
+    } else {
+        c->inlen += (size_t)n;
+        c->inbuf[c->inlen] = '\0';
+    }
 
     /* Drain all complete commands from inbuf */
     size_t offset = 0;
@@ -172,6 +174,12 @@ static int clientRead(Server *srv, Client *c) {
     if (offset > 0 && offset < c->inlen) memmove(c->inbuf, c->inbuf + offset, c->inlen - offset);
     c->inlen -= offset;
     if (c->inlen < c->incap) c->inbuf[c->inlen] = '\0';
+
+    if (peerClosed) {
+        /* If peer has closed write-side, close once buffered replies are flushed.
+         * Any leftover unread input is incomplete and cannot form a full command. */
+        return c->out.len > 0 ? 1 : 0;
+    }
 
     return 1;
 }
