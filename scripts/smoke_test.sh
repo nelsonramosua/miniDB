@@ -239,7 +239,11 @@ cmd DEL smoke:renA smoke:renB >/dev/null
 DBSIZE_BEFORE=$(cmd DBSIZE)
 cmd SET smoke:renA hello >/dev/null
 DBSIZE_AFTER_SET=$(cmd DBSIZE)
-check_int "DBSIZE increments after SET"     1 "$((DBSIZE_AFTER_SET - DBSIZE_BEFORE))"
+DBSIZE_DIFF=0
+if [[ "$DBSIZE_BEFORE" =~ ^-?[0-9]+$ ]] && [[ "$DBSIZE_AFTER_SET" =~ ^-?[0-9]+$ ]]; then
+    DBSIZE_DIFF=$((DBSIZE_AFTER_SET - DBSIZE_BEFORE))
+fi
+check_int "DBSIZE increments after SET"     1 "$DBSIZE_DIFF"
 check "RENAME returns OK"                   "OK" "$(cmd RENAME smoke:renA smoke:renB)"
 check "RENAME moved value"                  "hello" "$(cmd GET smoke:renB)"
 check "RENAME removed old key"              ""   "$(cmd GET smoke:renA)"

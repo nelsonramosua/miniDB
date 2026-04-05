@@ -136,7 +136,12 @@ static int clientRead(Server *srv, Client *c) {
     ssize_t n = read(c->fd, c->inbuf + c->inlen, (c->incap - 1) - c->inlen);
     if (n <= 0) {
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return 1;
-        return 0; /* EOF or error */
+        if (n == 0) {
+            /* Peer closed write-side. Keep connection while we still have
+             * buffered output to flush back to the client. */
+            return c->out.len > 0 ? 1 : 0;
+        }
+        return 0; /* hard error */
     }
     c->inlen += (size_t)n;
     c->inbuf[c->inlen] = '\0';
