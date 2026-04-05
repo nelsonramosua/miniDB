@@ -34,7 +34,6 @@ static const CmdEntry CMD_TABLE[] = {
     {"COMMAND", 1, -1, cmdCommand},
     {"CONFIG", 2, -1, cmdConfig},
     {"INFO", 1, 1, cmdInfo},
-    {"HELLO", 1, -1, cmdHello},
 
     /* ── String / key-space ────────────────────── */
     {"SET", 3, 7, cmdSet},

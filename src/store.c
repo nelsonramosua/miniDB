@@ -143,28 +143,26 @@ int storeDel(Store *s, const char *key) {
 }
 
 Object *storeDetach(Store *s, const char *key) {
-    size_t idx = bucketIdx(s, key);
-    StoreEntry **pp = &s->buckets[idx];
-
+    StoreEntry **pp = &s->buckets[bucketIdx(s, key)];
     while (*pp) {
         if (strcmp((*pp)->key, key) == 0) {
-            StoreEntry *del = *pp;
-            *pp = del->next;
-            Object *o = del->val;
-            free(del->key);
-            free(del);
-            s->size--;
-            if (objExpired(o)) {
-                objFree(o);
+            StoreEntry *e = *pp;
+            if (objExpired(e->val)) {
+                *pp = e->next;
+                entryFree(e, 1);  // expired: free it
+                s->size--;
                 return NULL;
             }
-            return o;
+            *pp = e->next;
+            Object *val = e->val;
+            entryFree(e, 0);  // freeVal=0 → keep the value alive
+            s->size--;
+            return val;       // caller owns this now
         }
         pp = &(*pp)->next;
     }
     return NULL;
 }
-
 
 int storeExists(Store *s, const char *key) {
     return storeGet(s, key) != NULL;

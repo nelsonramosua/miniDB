@@ -132,35 +132,18 @@ int cmdExists(Server *srv, const Request *req, RespBuf *buf) {
 }
 
 int cmdRename(Server *srv, const Request *req, RespBuf *buf) {
-    const char *srcKey = req->argv[1];
-    const char *dstKey = req->argv[2];
-
-    if (!storeExists(srv->store, srcKey)) {
-        respErr(buf, "no such key");
-        return 1;
+    const char *src = req->argv[1], *dst = req->argv[2];
+    if (strcmp(src, dst) == 0) {
+        if (!storeExists(srv->store, src)) { respErr(buf, "no such key"); return 1; }
+        respOk(buf); return 1;
     }
-    if (strcmp(srcKey, dstKey) == 0) {
-        respOk(buf);
-        return 1;
+    Object *o = storeDetach(srv->store, src);  // safe: no free
+    if (!o) { respErr(buf, "no such key"); return 1; }
+    if (!storeSet(srv->store, dst, o)) {
+        objFree(o);  // OOM: we still own it, must free
+        respErr(buf, "OOM"); return 1;
     }
-
-    Object *moved = storeDetach(srv->store, srcKey);
-    if (!moved) {
-        respErr(buf, "no such key");
-        return 1;
-    }
-
-    storeDel(srv->store, dstKey);
-    if (!storeSet(srv->store, dstKey, moved)) {
-        if (!storeSet(srv->store, srcKey, moved)) {
-            objFree(moved);
-        }
-        respErr(buf, "OOM");
-        return 1;
-    }
-
-    respOk(buf);
-    return 1;
+    respOk(buf); return 1;
 }
 
 /* ── TTL / EXPIRE ────────────────────────────────────────────────────────── *

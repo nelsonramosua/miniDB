@@ -26,13 +26,6 @@ int cmdPing(Server *srv, const Request *req, RespBuf *buf) {
     return 1;
 }
 
-int cmdHello(Server *srv, const Request *req, RespBuf *buf) {
-    (void)srv;
-    (void)req;
-    respErr(buf, "NOPROTO unsupported protocol version");
-    return 1;
-}
-
 /* Returns 0 to signal the event loop to close this connection. */
 int cmdQuit(Server *srv, const Request *req, RespBuf *buf) {
     (void)srv;

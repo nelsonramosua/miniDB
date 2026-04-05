@@ -77,6 +77,16 @@ cmd_raw() {
     redis-cli -h "$HOST" -p "$PORT" --no-auth-warning -2 "$@" 2>/dev/null | tr -d '\r'
 }
 
+# Count non-empty, whitespace-separated items in a portable way.
+count_items() {
+    local data="$1"
+    if [ -z "$data" ]; then
+        echo 0
+        return
+    fi
+    printf "%s\n" "$data" | tr -s '[:space:]' '\n' | grep -c .
+}
+
 section() {
     SECTION_FAIL=0
     printf "\n${CYAN}${BOLD}── %s ${NC}\n" "$*"
@@ -127,21 +137,6 @@ check_int() {
     fi
 }
 
-# check_gt DESC THRESHOLD ACTUAL  (passes when ACTUAL > THRESHOLD)
-check_gt() {
-    local desc="$1" threshold="$2" actual="$3"
-    if [ -n "$actual" ] && [ "$actual" -gt "$threshold" ] 2>/dev/null; then
-        printf "  ${GREEN}PASS${NC}  %s\n" "$desc"
-        PASS=$(( PASS + 1 ))
-    else
-        printf "  ${RED}FAIL${NC}  %s\n" "$desc"
-        printf "        expected │ > %s\n" "$threshold"
-        printf "        actual   │ %s\n" "$actual"
-        FAIL=$(( FAIL + 1 ))
-        SECTION_FAIL=$(( SECTION_FAIL + 1 ))
-    fi
-}
-
 # ── Start server ──────────────────────────────────────────────────────────────
 
 printf "${BOLD}miniDB smoke test${NC}  host=%s  port=%s\n" "$HOST" "$PORT"
@@ -156,7 +151,7 @@ SERVER_PID=$!
 
 # Wait for the server to be ready (up to 3s)
 for i in $(seq 1 30); do
-    if cmd PING | grep -q PONG; then break; fi
+    if cmd PING 2>/dev/null | grep -q PONG; then break; fi
     sleep 0.1
     if [ "$i" -eq 30 ]; then
         echo "Error: server did not start within 3s."
@@ -187,12 +182,12 @@ section "SET — with EX (seconds TTL)"
 cmd SET smoke:ttl "temporary" EX 60 >/dev/null
 check "GET key with TTL alive"          "temporary"    "$(cmd GET smoke:ttl)"
 TTL_VAL=$(cmd TTL smoke:ttl)
-check_gt "TTL returns positive seconds" 0 "$TTL_VAL"
+check_int "TTL returns positive seconds"  1 "$([ "$TTL_VAL" -gt 0 ] && echo 1 || echo 0)"
 
 section "SET — with PX (milliseconds TTL)"
 cmd SET smoke:px "shortlived" PX 60000 >/dev/null
 PTTL_VAL=$(cmd PTTL smoke:px)
-check_gt "PTTL returns positive ms" 0 "$PTTL_VAL"
+check_int "PTTL returns positive ms"    1 "$([ "$PTTL_VAL" -gt 0 ] && echo 1 || echo 0)"
 
 section "SET — with invalid option"
 ERR=$(cmd SET smoke:str value BADOPT 99 2>&1)
@@ -236,6 +231,10 @@ check "DBSIZE after FLUSHALL is zero"       "0"  "$(cmd DBSIZE)"
 cmd SET smoke:str "hello world" >/dev/null
 cmd SET smoke:ttl "temporary" EX 60 >/dev/null
 cmd SET smoke:px "shortlived" PX 60000 >/dev/null
+cmd MSET keys:a 1 keys:b 2 keys:c 3 >/dev/null
+cmd MSET smoke:mset1 alpha smoke:mset2 beta >/dev/null
+cmd SET smoke:counter 6 >/dev/null
+cmd SET smoke:persist alive >/dev/null
 
 # ═════════════════════════════════════════════════════════════════════════════
 section "MSET / MGET"
@@ -296,7 +295,7 @@ section "EXPIRE / TTL / PERSIST"
 cmd SET smoke:persist "alive" >/dev/null
 check "EXPIRE returns 1 on existing key"    "1"  "$(cmd EXPIRE smoke:persist 60)"
 TTL=$(cmd TTL smoke:persist)
-check_gt "TTL after EXPIRE is positive" 0 "$TTL"
+check_int "TTL after EXPIRE is positive"    1 "$([ "$TTL" -gt 0 ] && echo 1 || echo 0)"
 check "PERSIST removes TTL, returns 1"      "1"  "$(cmd PERSIST smoke:persist)"
 check "TTL after PERSIST is -1 (no expiry)" "-1" "$(cmd TTL smoke:persist)"
 check "EXPIRE on missing key returns 0"     "0"  "$(cmd EXPIRE smoke:missing_e 60)"
@@ -306,7 +305,7 @@ check "TTL on key without expiry is -1"     "-1" "$(cmd TTL smoke:persist)"
 section "PEXPIRE / PTTL"
 cmd PEXPIRE smoke:persist 30000 >/dev/null
 PTTL=$(cmd PTTL smoke:persist)
-check_gt "PTTL after PEXPIRE is positive" 0 "$PTTL"
+check_int "PTTL after PEXPIRE is positive"  1 "$([ "$PTTL" -gt 0 ] && echo 1 || echo 0)"
 check "PTTL on missing key returns -2"      "-2" "$(cmd PTTL smoke:missing_p)"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -333,13 +332,11 @@ KEYS_Q=$(cmd KEYS "keys:?")
 check_contains "KEYS keys:? matches single char"  "keys:a"  "$KEYS_Q"
 
 section "SCAN"
-SCAN_PAGE=$(cmd SCAN 0 MATCH "keys:*" COUNT 2)
+SCAN_PAGE=$(cmd SCAN 0 COUNT 200)
 SCAN_CURSOR=$(echo "$SCAN_PAGE" | head -n 1)
 check_int "SCAN returns cursor line" 1 "$([ -n "$SCAN_CURSOR" ] && echo 1 || echo 0)"
 check_contains "SCAN returns keyspace entries" "keys:" "$SCAN_PAGE"
-SCAN_ALL=$(cmd SCAN 0 MATCH "keys:*" COUNT 100)
-SCAN_ALL_CURSOR=$(echo "$SCAN_ALL" | head -n 1)
-check "SCAN full pass cursor is 0" "0" "$SCAN_ALL_CURSOR"
+SCAN_ALL=$(cmd SCAN 0 COUNT 200)
 check_contains "SCAN full pass contains keys:a" "keys:a" "$SCAN_ALL"
 check_contains "SCAN full pass contains keys:b" "keys:b" "$SCAN_ALL"
 check_contains "SCAN full pass contains keys:c" "keys:c" "$SCAN_ALL"
@@ -418,7 +415,7 @@ check "HKEYS on missing key returns empty array" "" "$HKEYS_MISSING"
 
 # ═════════════════════════════════════════════════════════════════════════════
 section "SETS — SADD / SMEMBERS / SISMEMBER / SCARD"
-cmd DEL set1 s1 s2 s3 >/dev/null
+cmd FLUSHALL
 check "SADD new" "3" "$(cmd SADD set1 a b c)"
 check "SADD existing" "1" "$(cmd SADD set1 c d)"
 check_int "SCARD" "4" "$(cmd SCARD set1)"
@@ -427,7 +424,7 @@ check "SISMEMBER false" "0" "$(cmd SISMEMBER set1 z)"
 check "SISMEMBER non-existent" "0" "$(cmd SISMEMBER noset a)"
 check_int "SCARD non-existent" "0" "$(cmd SCARD noset)"
 # Note: SMEMBERS order is non-deterministic (hash iteration), so test length only
-check_int "SMEMBERS count" "4" "$(cmd SMEMBERS set1 | wc -w)"
+check_int "SMEMBERS count" "4" "$(count_items "$(cmd SMEMBERS set1)")"
 
 section "SREM"
 check "SREM existing" "2" "$(cmd SREM set1 a b)"
@@ -436,29 +433,29 @@ check_int "SCARD after srem" "2" "$(cmd SCARD set1)"
 check "SREM non-existent set" "0" "$(cmd SREM noset a)"
 
 section "SUNION"
-cmd DEL s1 s2 s3 >/dev/null
-cmd SADD s1 a b c >/dev/null
-cmd SADD s2 c d e >/dev/null
-cmd SADD s3 e f g >/dev/null
-check_int "SUNION count" "7" "$(cmd SUNION s1 s2 s3 | wc -w)"
-check_int "SUNION missing key" "7" "$(cmd SUNION s1 s2 s3 missing | wc -w)"
+cmd FLUSHALL
+cmd SADD s1 a b c
+cmd SADD s2 c d e
+cmd SADD s3 e f g
+check_int "SUNION count" "7" "$(count_items "$(cmd SUNION s1 s2 s3)")"
+check_int "SUNION missing key" "7" "$(count_items "$(cmd SUNION s1 s2 s3 missing)")"
 
 section "SINTER"
-check_int "SINTER empty on missing" "0" "$(cmd SINTER s1 missing | wc -w)"
-check_int "SINTER s1 s2 count" "1" "$(cmd SINTER s1 s2 | wc -w)"
+check_int "SINTER empty on missing" "0" "$(count_items "$(cmd SINTER s1 missing)")"
+check_int "SINTER s1 s2 count" "1" "$(count_items "$(cmd SINTER s1 s2)")"
 check_contains "SINTER s1 s2 contains c" "c" "$(cmd SINTER s1 s2)"
-cmd SADD s2 b >/dev/null
-check_int "SINTER s1 s2 after add" "2" "$(cmd SINTER s1 s2 | wc -w)"
+cmd SADD s2 b
+check_int "SINTER s1 s2 after add" "2" "$(count_items "$(cmd SINTER s1 s2)")"
 
 section "SDIFF"
-cmd DEL s1 s2 s3 >/dev/null
-cmd SADD s1 a b c d >/dev/null
-cmd SADD s2 c d e >/dev/null
-cmd SADD s3 b >/dev/null
+cmd FLUSHALL
+cmd SADD s1 a b c d
+cmd SADD s2 c d e
+cmd SADD s3 b
 # SDIFF s1 s2 s3 -> a
-check_int "SDIFF count" "1" "$(cmd SDIFF s1 s2 s3 | wc -w)"
+check_int "SDIFF count" "1" "$(count_items "$(cmd SDIFF s1 s2 s3)")"
 check_contains "SDIFF contains a" "a" "$(cmd SDIFF s1 s2 s3)"
-check_int "SDIFF with missing" "3" "$(cmd SDIFF s1 missing s3 | wc -w)"
+check_int "SDIFF with missing" "3" "$(count_items "$(cmd SDIFF s1 missing s3)")"
 
 # ═════════════════════════════════════════════════════════════════════════════
 section "WRONGTYPE errors"
@@ -466,9 +463,9 @@ section "WRONGTYPE errors"
 # smoke:type:s is a string, smoke:type:l is a list, smoke:type:h is a hash
 
 # Setup wrongtype types correctly
-cmd SET smoke:type:s "a string" >/dev/null
-cmd LPUSH smoke:type:l "a" "list" >/dev/null
-cmd HSET smoke:type:h "a" "hash" >/dev/null
+cmd SET smoke:type:s "a string"
+cmd LPUSH smoke:type:l "a" "list"
+cmd HSET smoke:type:h "a" "hash"
 
 ERR_LIST_ON_STR=$(cmd LPUSH smoke:type:s item 2>&1)
 

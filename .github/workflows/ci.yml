@@ -87,7 +87,7 @@ jobs:
         run: |
           docker run -d --name kv -p 7379:6380 minidb:ci
           sleep 1
-          printf "PING\r\n" | nc -w 1 localhost 7379 || true
+          echo -e "PING\r\n" | nc -q1 localhost 7379 || true
           docker stop kv && docker rm kv
 
   usecases-smoke:

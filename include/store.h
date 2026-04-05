@@ -51,6 +51,10 @@ Object *storeGet(Store *s, const char *key);
 /* Returns 1 if a key was deleted, 0 if not found. */
 int storeDel(Store *s, const char *key);
 
+/* Rename src key to dst key.
+ * Returns: 1=renamed, 0=src missing. Destination is overwritten if present. */
+int storeRename(Store *s, const char *src, const char *dst);
+
 /* Unlink an entry and return ownership of its value without freeing it.
  * Returns NULL if not found or expired. */
 Object *storeDetach(Store *s, const char *key);
