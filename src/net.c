@@ -45,6 +45,8 @@ typedef struct {
     RespBuf out;
 } Client;
 
+static int clientWrite(Client *c);
+
 static Client *clientNew(int fd) {
     Client *c = calloc(1, sizeof(*c));
     if (!c) return NULL;
@@ -167,6 +169,11 @@ static int clientRead(Server *srv, Client *c) {
         int keep = cmdDispatch(srv, &req, &c->out);
         protoReqFree(&req);
         if (!keep) return 0;
+
+        /* Try to drain replies immediately. This reduces a race where the
+         * peer half-closes quickly and we would otherwise wait for a later
+         * POLLOUT cycle to flush buffered output. */
+        if (c->out.len > 0 && !clientWrite(c)) return 0;
         parsedCmds++;
     }
 
