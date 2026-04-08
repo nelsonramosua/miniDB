@@ -5,7 +5,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../../include/commandInternal.h"
+#include "../../headers/CommandInternal.h"
 #include <string.h>
 
 int cmdHset(Server *srv, const Request *req, RespBuf *buf) {

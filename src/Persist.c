@@ -1,10 +1,10 @@
-/* src/persist.c – snapshot persistence (save + load) */
+/* src/Persist.c – snapshot persistence (save + load) */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../include/persist.h"
-#include "../include/store.h"
-#include "../include/object.h"
+#include "../headers/Persist.h"
+#include "../headers/Store.h"
+#include "../headers/Object.h"
 
 #include <errno.h>
 #include <stdint.h>

@@ -5,7 +5,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../../include/commandInternal.h"
+#include "../../headers/CommandInternal.h"
 #include <stdlib.h>
 
 /* ── Push ────────────────────────────────────────────────────────────────── */

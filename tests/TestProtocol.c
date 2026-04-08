@@ -1,15 +1,15 @@
-/* tests/testProto.c – unit tests for the protocol parser and response builder
+/* tests/TestProto.c – unit tests for the protocol parser and response builder
  *
  * Compile standalone:
  *   gcc -std=c11 -Wall -Wextra -I../src ../src/proto.c \
  *       testProto.c -o testProto && ./testProto
  */
 
-#include "../include/protocol.h"
-#include "../include/command.h"
-#include "../include/server.h"
-#include "../include/store.h"
-#include "../include/object.h"
+#include "../headers/Protocol.h"
+#include "../headers/Command.h"
+#include "../headers/Server.h"
+#include "../headers/Store.h"
+#include "../headers/Object.h"
 
 #include <assert.h>
 #include <stdio.h>

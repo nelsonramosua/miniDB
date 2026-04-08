@@ -1,11 +1,11 @@
-/* src/server.c – server context and periodic maintenance */
+/* src/Server.c – server context and periodic maintenance */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../include/server.h"
-#include "../include/persist.h" /* persistSave */
-#include "../include/store.h"   /* storePurgeExpired */
-#include "../include/object.h"  /* nowMs */
+#include "../headers/Server.h"
+#include "../headers/Persist.h" /* persistSave */
+#include "../headers/Store.h"   /* storePurgeExpired */
+#include "../headers/Object.h"  /* nowMs */
 
 #include <errno.h>
 #include <limits.h>

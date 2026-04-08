@@ -1,4 +1,4 @@
-/* src/store.h – top-level key-value store
+/* src/Store.h – top-level key-value store
  *
  * The Store is a chained hash table mapping char* keys -> Object* values.
  *
@@ -17,7 +17,7 @@
 #ifndef STORE_H
 #define STORE_H
 
-#include "object.h"
+#include "Object.h"
 #include <stddef.h>
 
 #define STORE_INIT_BUCKETS 64u

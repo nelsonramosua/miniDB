@@ -1,4 +1,4 @@
-/* src/net.c – event loop, connection management, non-blocking I/O
+/* src/Net.c – event loop, connection management, non-blocking I/O
  *
  * Responsibilities (only these):
  *   - TCP accept / client lifecycle
@@ -12,12 +12,12 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../include/net.h"
-#include "../include/server.h"   /* serverTick, Server */
-#include "../include/command.h"  /* cmdDispatch */
-#include "../include/protocol.h" /* RespBuf, protoParse */
-#include "../include/persist.h"  /* persistLoad (startup only) */
-#include "../include/object.h"   /* nowMs */
+#include "../headers/Net.h"
+#include "../headers/Server.h"   /* serverTick, Server */
+#include "../headers/Command.h"  /* cmdDispatch */
+#include "../headers/Protocol.h" /* RespBuf, protoParse */
+#include "../headers/Persist.h"  /* persistLoad (startup only) */
+#include "../headers/Object.h"   /* nowMs */
 
 #include <arpa/inet.h>
 #include <errno.h>

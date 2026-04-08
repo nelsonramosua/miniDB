@@ -1,9 +1,9 @@
-/* src/store.c – chained hash table implementation */
+/* src/Store.c – chained hash table implementation */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../include/store.h"
-#include "../include/hashutil.h"
+#include "../headers/Store.h"
+#include "../headers/HashUtil.h"
 
 #include <stdlib.h>
 #include <string.h>

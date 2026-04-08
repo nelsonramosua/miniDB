@@ -1,9 +1,9 @@
-/* tests/testPersist.c – unit tests for snapshot persistence */
+/* tests/TestPersist.c – unit tests for snapshot persistence */
 
-#include "../include/object.h"
-#include "../include/persist.h"
-#include "../include/server.h"
-#include "../include/store.h"
+#include "../headers/Object.h"
+#include "../headers/Persist.h"
+#include "../headers/Server.h"
+#include "../headers/Store.h"
 
 #include <stdio.h>
 #include <stdlib.h>

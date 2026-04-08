@@ -1,11 +1,11 @@
-/* include/cmd_internal.h – shared utilities for cmd_*.c files
+/* headers/cmd_internal.h – shared utilities for cmd_*.c files
  *
  * This header is NOT part of the public API.  It is included only by the
  * command implementation files (cmd_string.c, cmd_list.c, cmd_hash.c,
  * cmd_conn.c) and never by net.c, persist.c, or tests.
  *
  * It provides:
- *   - The canonical CmdFn typedef (same as in command.h)
+ *   - The canonical CmdFn typedef (same as in Command.h)
  *   - WRONGTYPE response helper
  *   - getOrCreate* helpers (shared by list and hash push commands)
  *   - parseI64Strict / setStringFromI64 (used by string INCR/DECR)
@@ -13,11 +13,11 @@
 #ifndef COMMAND_INTERNAL_H
 #define COMMAND_INTERNAL_H
 
-#include "command.h" /* CmdFn, CmdEntry */
-#include "server.h"
-#include "store.h"
-#include "object.h"
-#include "protocol.h"
+#include "Command.h" /* CmdFn, CmdEntry */
+#include "Server.h"
+#include "Store.h"
+#include "Object.h"
+#include "Protocol.h"
 
 #include <errno.h>
 #include <limits.h>

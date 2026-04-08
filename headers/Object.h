@@ -1,4 +1,4 @@
-/* src/object.h – value-type system
+/* src/Object.h – value-type system
  *
  * Every value stored in the KV store is an Object. An Object carries:
  *   - A type tag  (string | list | hash)

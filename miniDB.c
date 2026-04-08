@@ -9,8 +9,8 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "include/server.h"
-#include "include/net.h"
+#include "headers/Server.h"
+#include "headers/Net.h"
 
 #include <signal.h>
 #include <stdio.h>

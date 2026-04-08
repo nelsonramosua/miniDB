@@ -23,11 +23,11 @@ SRC_DIR   := src
 TEST_DIR  := tests
 BUILD_DIR := build
 MAIN_SRC  := miniDB.c
-INCFLAGS  := -I$(SRC_DIR) -Iinclude -I.
+INCFLAGS  := -I$(SRC_DIR) -Iheaders -I.
 
 SRCS := $(sort $(shell find $(SRC_DIR) -type f -name '*.c'))
 LIB_SRCS := $(SRCS)
-STYLE_FILES := $(sort $(MAIN_SRC) $(shell find $(SRC_DIR) include $(TEST_DIR) -type f \( -name '*.c' -o -name '*.h' \)))
+STYLE_FILES := $(sort $(MAIN_SRC) $(shell find $(SRC_DIR) headers $(TEST_DIR) -type f \( -name '*.c' -o -name '*.h' \)))
 TIDY_FILES := $(sort $(MAIN_SRC) $(SRCS) $(shell find $(TEST_DIR) -type f -name '*.c') scripts/useCases/c/Metrics/Metrics.c)
 
 OBJS         := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
@@ -86,13 +86,13 @@ test: $(TEST_BINS)
 	echo ""; echo "Running test_proto..."; ./$(TEST_PROTO_BIN)
 	echo ""; echo "Running test_persist..."; ./$(TEST_PERSIST_BIN)
 
-$(TEST_STORE_BIN): $(TEST_DIR)/testStore.c $(LIB_OBJS) | $(BUILD_DIR)
+$(TEST_STORE_BIN): $(TEST_DIR)/TestStore.c $(LIB_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(RELEASE_FLAGS) $(INCFLAGS) -o $@ $^
 
-$(TEST_PROTO_BIN): $(TEST_DIR)/testProtocol.c $(LIB_OBJS) | $(BUILD_DIR)
+$(TEST_PROTO_BIN): $(TEST_DIR)/TestProtocol.c $(LIB_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(RELEASE_FLAGS) $(INCFLAGS) -o $@ $^
 
-$(TEST_PERSIST_BIN): $(TEST_DIR)/testPersist.c $(LIB_OBJS) | $(BUILD_DIR)
+$(TEST_PERSIST_BIN): $(TEST_DIR)/TestPersist.c $(LIB_OBJS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(RELEASE_FLAGS) $(INCFLAGS) -o $@ $^
 
 # ── Valgrind ─────────────────────────────────────────────────────────────────
@@ -143,4 +143,4 @@ clean:
 	rm -rf $(BUILD_DIR) $(TARGET) $(DEBUG_TARGET) $(TEST_STORE_BIN) $(TEST_PROTO_BIN) $(TEST_PERSIST_BIN)
 
 # Ensure header changes trigger recompilation
-$(BUILD_DIR)/%.o: $(wildcard include/*.h)
+$(BUILD_DIR)/%.o: $(wildcard headers/*.h)

@@ -1,4 +1,4 @@
-/* src/net.h – single-threaded event loop (poll-based)
+/* src/Net.h – single-threaded event loop (poll-based)
  *
  * Architecture: one thread, one event loop, no locking.
  *
@@ -28,7 +28,7 @@
 #ifndef NET_H
 #define NET_H
 
-#include "server.h"
+#include "Server.h"
 
 #define NET_MAX_CLIENTS 1024
 #define NET_INBUF_SIZE 4096

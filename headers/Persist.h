@@ -1,4 +1,4 @@
-/* src/persist.h – snapshot-based persistence
+/* src/Persist.h – snapshot-based persistence
  *
  * WHY SNAPSHOTS OVER WAL:
  *
@@ -31,7 +31,7 @@
 #ifndef PERSIST_H
 #define PERSIST_H
 
-#include "server.h"
+#include "Server.h"
 
 #define SNAPSHOT_MAGIC "KVDB"
 #define SNAPSHOT_VERSION 1u

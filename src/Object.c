@@ -1,9 +1,9 @@
-/* src/object.c – implementations for the KVObject type system */
+/* src/Object.c – implementations for the KVObject type system */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../include/object.h"
-#include "../include/hashutil.h"
+#include "../headers/Object.h"
+#include "../headers/HashUtil.h"
 
 #include <stdlib.h>
 #include <string.h>

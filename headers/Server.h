@@ -1,4 +1,4 @@
-/* include/server.h – server context
+/* headers/Server.h – server context
  *
  * Server is the top-level object that owns the Store and all configuration.
  * It is passed to every command handler so they can reach the store without
@@ -11,7 +11,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "store.h"
+#include "Store.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -46,7 +46,7 @@ void serverFree(Server *s);
 
 /* Called by the event loop every ~100 ms.
  * Handles: TTL purge, periodic snapshot.
- * net.c need not include persist.h or store.h for maintenance purposes. */
+ * net.c need not include Persist.h or Store.h for maintenance purposes. */
 void serverTick(Server *s);
 
 #endif /* SERVER_H */

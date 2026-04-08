@@ -1,12 +1,12 @@
-/* tests/testStore.c – unit tests for the hash table and object layer
+/* tests/TestStore.c – unit tests for the hash table and object layer
  *
  * Compile standalone:
- *   gcc -std=c11 -Wall -Wextra -I../src ../src/store.c ../src/object.c \
- *       testStore.c -o testStore && ./testStore
+ *   gcc -std=c11 -Wall -Wextra -I../src ../src/Store.c ../src/Object.c \
+ *       TestStore.c -o testStore && ./testStore
  */
 
-#include "../include/store.h"
-#include "../include/object.h"
+#include "../headers/Store.h"
+#include "../headers/Object.h"
 
 #include <assert.h>
 #include <stdio.h>

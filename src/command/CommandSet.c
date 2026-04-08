@@ -1,11 +1,11 @@
-/* src/command/commandSet.c – set commands
+/* src/command/CommandSet.c – set commands
  *
  * Commands: SADD SMEMBERS SISMEMBER
  */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../../include/commandInternal.h"
+#include "../../headers/CommandInternal.h"
 #include <string.h>
 
 int cmdSadd(Server *srv, const Request *req, RespBuf *buf) {

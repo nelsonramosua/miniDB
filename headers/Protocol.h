@@ -1,4 +1,4 @@
-/* include/protocol.h – minimal text protocol (RESP-compatible)
+/* headers/Protocol.h – minimal text protocol (RESP-compatible)
  *
  * WIRE FORMAT
  * ───────────

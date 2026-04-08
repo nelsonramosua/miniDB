@@ -1,8 +1,8 @@
-/* src/protocol.c – request parsing and RESP response generation */
+/* src/Protocol.c – request parsing and RESP response generation */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../include/protocol.h"
+#include "../headers/Protocol.h"
 
 #include <ctype.h>
 #include <errno.h>

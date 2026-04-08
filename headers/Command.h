@@ -1,4 +1,4 @@
-/* include/command.h – public command interface
+/* headers/Command.h – public command interface
  *
  * Exposes:
  *   - CmdFn / CmdEntry types
@@ -8,7 +8,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#include "protocol.h" /* RespBuf, Request */
+#include "Protocol.h" /* RespBuf, Request */
 #include <stddef.h>
 
 /* Forward declarations */

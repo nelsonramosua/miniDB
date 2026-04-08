@@ -4,15 +4,15 @@
  * All implementations live in commandString.c, commandList.c, commandHash.c,
  * commandConn.c.  To add a new command:
  *   1. Implement it in the appropriate cmd*.c file.
- *   2. Add a forward declaration to include/command.h.
+ *   2. Add a forward declaration to headers/Command.h.
  *   3. Add one row to CMD_TABLE[] below.
  */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "../../include/command.h"
-#include "../../include/protocol.h"
-#include "../../include/server.h"
+#include "../../headers/Command.h"
+#include "../../headers/Protocol.h"
+#include "../../headers/Server.h"
 
 #include <ctype.h>
 #include <stdio.h>

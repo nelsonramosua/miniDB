@@ -62,17 +62,17 @@ ls scripts/useCases
 ```
         client (redis-cli, redis-benchmark, any RESP client)
               │  TCP / RESP
-         net.c     ──  poll() event loop, non-blocking I/O, client lifecycle
+         Net.c     ──  poll() event loop, non-blocking I/O, client lifecycle
               │
          command/  ──  dispatch table → per-command handlers
               │
-         server.c  ──  config parsing, periodic tick (TTL purge + snapshot scheduling)
+         Server.c  ──  config parsing, periodic tick (TTL purge + snapshot scheduling)
               │
-         store.c   ──  top-level hash table  key → Object*
+         Store.c   ──  top-level hash table  key → Object*
               │
-         object.c  ──  tagged union: string | list | hash, TTL
+         Object.c  ──  tagged union: string | list | hash, TTL
               │
-        persist.c  ──  snapshot save (atomic rename) + load
+        Persist.c  ──  snapshot save (atomic rename) + load
 ```
 
 ### Design choices
@@ -252,12 +252,12 @@ make debug             # build with AddressSanitizer + UndefinedBehaviorSanitize
 
 ### Unit tests
 
-`tests/testStore.c` — store lifecycle, TTL expiry, lazy deletion, resize, iteration.
+`tests/TestStore.c` — store lifecycle, TTL expiry, lazy deletion, resize, iteration.
 
-`tests/testProtocol.c` — inline and RESP parser, response builders,
+`tests/TestProtocol.c` — inline and RESP parser, response builders,
 command dispatch, error paths.
 
-`tests/testPersist.c` — snapshot save and load round-trip for all three object
+`tests/TestPersist.c` — snapshot save and load round-trip for all three object
 types, expired-key filtering on load, version mismatch rejection.
 
 ### Integration tests
@@ -492,35 +492,35 @@ and on pull requests:
 miniDB.c                entry point: server lifecycle
 
 src/
-  net.c                  poll loop, accept/read/write, client lifecycle
-  server.c               ServerConfig parsing, server context, periodic tick
-  store.c                top-level hash table (key → Object*)
-  object.c               Object type system, list and hash operations
-  protocol.c             RESP parser and response builders
-  persist.c              snapshot save and load
+  Net.c                  poll loop, accept/read/write, client lifecycle
+  Server.c               ServerConfig parsing, server context, periodic tick
+  Store.c                top-level hash table (key → Object*)
+  Object.c               Object type system, list and hash operations
+  Protocol.c             RESP parser and response builders
+  Persist.c              snapshot save and load
   command/
-    command.c            dispatch table and cmdLookup/cmdDispatch
-    commandConn.c        PING, QUIT, CLIENT, COMMAND, CONFIG, INFO
-    commandString.c      SET, GET, DEL, EXISTS, TTL, INCR, APPEND, SETNX, …
-    commandList.c        LPUSH, RPUSH, LPOP, RPOP, LLEN, LRANGE
-    commandHash.c        HSET, HGET, HDEL, HLEN, HGETALL, HKEYS, HVALS
-    commandSet.c         SADD, SREM, SISMEMBER, SMEMBERS, SCARD, SUNION, …
+    Command.c            dispatch table and cmdLookup/cmdDispatch
+    CommandConn.c        PING, QUIT, CLIENT, COMMAND, CONFIG, INFO
+    CommandString.c      SET, GET, DEL, EXISTS, TTL, INCR, APPEND, SETNX, …
+    CommandList.c        LPUSH, RPUSH, LPOP, RPOP, LLEN, LRANGE
+    CommandHash.c        HSET, HGET, HDEL, HLEN, HGETALL, HKEYS, HVALS
+    CommandSet.c         SADD, SREM, SISMEMBER, SMEMBERS, SCARD, SUNION, …
 
-include/
-  object.h               Object, KVList, KVHash types and lifecycle
-  store.h                Store type and API
-  command.h              CmdFn, CmdEntry, public handler declarations
-  commandInternal.h      Internal helpers (getOrCreate*, parseI64Strict, …)
-  protocol.h             Request, RespBuf, proto*/resp* API
-  net.h                  netRun declaration and tuning constants
-  server.h               Server, ServerConfig, and API
-  persist.h              persistSave / persistLoad
-  hashutil.h             hashFnv1a32 — shared FNV-1a implementation
+headers/
+  Object.h               Object, KVList, KVHash types and lifecycle
+  Store.h                Store type and API
+  Command.h              CmdFn, CmdEntry, public handler declarations
+  CommandInternal.h      Internal helpers (getOrCreate*, parseI64Strict, …)
+  Protocol.h             Request, RespBuf, proto*/resp* API
+  Net.h                  netRun declaration and tuning constants
+  Server.h               Server, ServerConfig, and API
+  Persist.h              persistSave / persistLoad
+  HashUtil.h             hashFnv1a32 — shared FNV-1a implementation
 
 tests/
-  testStore.c            store, object, TTL unit tests
-  testProtocol.c         parser and dispatch unit tests
-  testPersist.c          snapshot save/load round-trip unit tests
+  TestStore.c            store, object, TTL unit tests
+  TestProtocol.c         parser and dispatch unit tests
+  TestPersist.c          snapshot save/load round-trip unit tests
 
 scripts/
   smoke_test.sh          live command coverage test (requires redis-cli)
