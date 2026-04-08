@@ -43,30 +43,58 @@ ServerConfigParseResult serverConfigParse(int argc, char **argv, ServerConfig *c
     cfg->snapshotPath = "miniDB.snap";
     cfg->snapshotSecs = 300;
 
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
-            if (!parseIntArg(argv[++i], 1, 65535, &cfg->port)) {
-                fprintf(stderr, "Invalid --port: %s\n", argv[i]);
+    int i = 1;
+    while (i < argc) {
+        if (strcmp(argv[i], "--port") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Unknown option: %s\n", argv[i]);
+                usage(argv[0]);
                 return SERVER_CONFIG_ERROR;
             }
-        } else if (strcmp(argv[i], "--snapshot") == 0 && i + 1 < argc) {
-            cfg->snapshotPath = argv[++i];
-        } else if (strcmp(argv[i], "--save-interval") == 0 && i + 1 < argc) {
-            if (!parseIntArg(argv[++i], 0, INT_MAX, &cfg->snapshotSecs)) {
-                fprintf(stderr, "Invalid --save-interval: %s\n", argv[i]);
+            if (!parseIntArg(argv[i + 1], 1, 65535, &cfg->port)) {
+                fprintf(stderr, "Invalid --port: %s\n", argv[i + 1]);
                 return SERVER_CONFIG_ERROR;
             }
-        } else if (strcmp(argv[i], "--no-persist") == 0) {
+            i += 2;
+            continue;
+        }
+        if (strcmp(argv[i], "--snapshot") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Unknown option: %s\n", argv[i]);
+                usage(argv[0]);
+                return SERVER_CONFIG_ERROR;
+            }
+            cfg->snapshotPath = argv[i + 1];
+            i += 2;
+            continue;
+        }
+        if (strcmp(argv[i], "--save-interval") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Unknown option: %s\n", argv[i]);
+                usage(argv[0]);
+                return SERVER_CONFIG_ERROR;
+            }
+            if (!parseIntArg(argv[i + 1], 0, INT_MAX, &cfg->snapshotSecs)) {
+                fprintf(stderr, "Invalid --save-interval: %s\n", argv[i + 1]);
+                return SERVER_CONFIG_ERROR;
+            }
+            i += 2;
+            continue;
+        }
+        if (strcmp(argv[i], "--no-persist") == 0) {
             cfg->snapshotPath = NULL;
             cfg->snapshotSecs = 0;
-        } else if (strcmp(argv[i], "--help") == 0) {
+            i++;
+            continue;
+        }
+        if (strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
             return SERVER_CONFIG_HELP;
-        } else {
-            fprintf(stderr, "Unknown option: %s\n", argv[i]);
-            usage(argv[0]);
-            return SERVER_CONFIG_ERROR;
         }
+
+        fprintf(stderr, "Unknown option: %s\n", argv[i]);
+        usage(argv[0]);
+        return SERVER_CONFIG_ERROR;
     }
 
     return SERVER_CONFIG_OK;

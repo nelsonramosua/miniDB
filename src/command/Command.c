@@ -100,9 +100,11 @@ static const CmdEntry CMD_TABLE[] = {
 /* ── Lookup ─────────────────────────────────────────────────────────────── */
 
 const CmdEntry *cmdLookup(const char *name) {
+    if (!name) return NULL;
+
     char upper[64];
     size_t i;
-    for (i = 0; name[i] && i < sizeof(upper) - 1; i++) upper[i] = (char)toupper((unsigned char)name[i]);
+    for (i = 0; i < sizeof(upper) - 1 && name[i]; i++) upper[i] = (char)toupper((unsigned char)name[i]);
     upper[i] = '\0';
 
     for (const CmdEntry *c = CMD_TABLE; c->name; c++)
@@ -113,7 +115,8 @@ const CmdEntry *cmdLookup(const char *name) {
 /* ── Dispatch ────────────────────────────────────────────────────────────── */
 
 int cmdDispatch(Server *srv, const Request *req, RespBuf *buf) {
-    if (req->argc == 0) return 1;
+    if (!srv || !req || !buf) return 1;
+    if (req->argc == 0 || !req->argv[0]) return 1;
 
     const CmdEntry *c = cmdLookup(req->argv[0]);
     if (!c) {

@@ -26,7 +26,8 @@ int cmdSet(Server *srv, const Request *req, RespBuf *buf) {
     int nx = 0;
     int xx = 0;
 
-    for (int i = 3; i < req->argc; i++) {
+    int i = 3;
+    while (i < req->argc) {
         if (strcasecmp(req->argv[i], "EX") == 0 || strcasecmp(req->argv[i], "PX") == 0) {
             long long ttl = 0;
             if (ttlMs != -1 || i + 1 >= req->argc || !parseI64Strict(req->argv[i + 1], &ttl) || ttl <= 0) {
@@ -34,7 +35,7 @@ int cmdSet(Server *srv, const Request *req, RespBuf *buf) {
                 return 1;
             }
             ttlMs = (strcasecmp(req->argv[i], "EX") == 0) ? ttl * 1000LL : ttl;
-            i++;
+            i += 2;
             continue;
         }
         if (strcasecmp(req->argv[i], "NX") == 0) {
@@ -43,6 +44,7 @@ int cmdSet(Server *srv, const Request *req, RespBuf *buf) {
                 return 1;
             }
             nx = 1;
+            i++;
             continue;
         }
         if (strcasecmp(req->argv[i], "XX") == 0) {
@@ -51,6 +53,7 @@ int cmdSet(Server *srv, const Request *req, RespBuf *buf) {
                 return 1;
             }
             xx = 1;
+            i++;
             continue;
         }
 
@@ -278,13 +281,15 @@ int cmdScan(Server *srv, const Request *req, RespBuf *buf) {
         return 1;
     }
 
-    for (int i = 2; i < req->argc; i++) {
+    int i = 2;
+    while (i < req->argc) {
         if (strcasecmp(req->argv[i], "MATCH") == 0) {
             if (i + 1 >= req->argc) {
                 respErr(buf, "syntax error");
                 return 1;
             }
             pattern = req->argv[++i];
+            i++;
             continue;
         }
         if (strcasecmp(req->argv[i], "COUNT") == 0) {
@@ -292,7 +297,7 @@ int cmdScan(Server *srv, const Request *req, RespBuf *buf) {
                 respErr(buf, "syntax error");
                 return 1;
             }
-            i++;
+            i += 2;
             continue;
         }
         respErr(buf, "syntax error");
@@ -310,12 +315,21 @@ int cmdScan(Server *srv, const Request *req, RespBuf *buf) {
     if (idx > n) idx = n;
 
     size_t maxOut = (size_t)count;
-    size_t *matches = malloc(maxOut * sizeof(*matches));
-    if (!matches && maxOut > 0) {
-        for (size_t i = 0; i < n; i++) free(keys[i]);
-        free(keys);
-        respErr(buf, "OOM");
-        return 1;
+    size_t *matches = NULL;
+    if (maxOut > 0) {
+        if (maxOut > SIZE_MAX / sizeof(*matches)) {
+            for (size_t keyIndex = 0; keyIndex < n; keyIndex++) free(keys[keyIndex]);
+            free(keys);
+            respErr(buf, "OOM");
+            return 1;
+        }
+        matches = malloc(maxOut * sizeof(*matches));
+        if (!matches) {
+            for (size_t keyIndex = 0; keyIndex < n; keyIndex++) free(keys[keyIndex]);
+            free(keys);
+            respErr(buf, "OOM");
+            return 1;
+        }
     }
 
     size_t out = 0;
@@ -331,10 +345,11 @@ int cmdScan(Server *srv, const Request *req, RespBuf *buf) {
     respArrHdr(buf, 2);
     respBulk(buf, cursorBuf, (size_t)cursorLen);
     respArrHdr(buf, out);
-    for (size_t i = 0; i < out; i++) respBulk(buf, keys[matches[i]], strlen(keys[matches[i]]));
+    for (size_t matchIndex = 0; matchIndex < out; matchIndex++)
+        respBulk(buf, keys[matches[matchIndex]], strlen(keys[matches[matchIndex]]));
 
     free(matches);
-    for (size_t i = 0; i < n; i++) free(keys[i]);
+    for (size_t keyIndex = 0; keyIndex < n; keyIndex++) free(keys[keyIndex]);
     free(keys);
     return 1;
 }

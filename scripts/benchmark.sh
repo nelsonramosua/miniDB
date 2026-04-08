@@ -8,19 +8,54 @@ CLIENTS="${CLIENTS:-1}"
 PIPELINE="${PIPELINE:-1}"
 KEYSPACE="${KEYSPACE:-1000000}"
 RANDOM_KEYS="${RANDOM_KEYS:-0}"
+BINARY="${BINARY:-./miniDB}"
+SERVER_PID=""
 
 if ! command -v redis-benchmark >/dev/null 2>&1; then
     echo "redis-benchmark not found. Install redis-tools first." >&2
     exit 1
 fi
 
+if ! command -v redis-cli >/dev/null 2>&1; then
+    echo "redis-cli not found. Install redis-tools first." >&2
+    exit 1
+fi
+
+if [[ ! -x "${BINARY}" ]]; then
+    echo "miniDB binary not found. Run 'make' first." >&2
+    exit 1
+fi
+
+cleanup() {
+    if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+        kill "${SERVER_PID}" 2>/dev/null || true
+        wait "${SERVER_PID}" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
 echo "Running redis-benchmark on ${HOST}:${PORT}"
 echo "REQUESTS=${REQUESTS} CLIENTS=${CLIENTS} PIPELINE=${PIPELINE} KEYSPACE=${KEYSPACE} RANDOM_KEYS=${RANDOM_KEYS}"
 
-if command -v redis-cli >/dev/null 2>&1; then
-    redis-cli -h "${HOST}" -p "${PORT}" SET bench:get:key abc >/dev/null 2>&1 || true
-    redis-cli -h "${HOST}" -p "${PORT}" SET bench:incr:key 0 >/dev/null 2>&1 || true
+pkill -f "${BINARY}.*--port ${PORT}" >/dev/null 2>&1 || true
+"${BINARY}" --port "${PORT}" --no-persist >/tmp/miniDB_benchmark.log 2>&1 &
+SERVER_PID=$!
+
+for _ in $(seq 1 30); do
+    if redis-cli -h "${HOST}" -p "${PORT}" PING >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.1
+done
+
+if ! redis-cli -h "${HOST}" -p "${PORT}" PING >/dev/null 2>&1; then
+    echo "miniDB server did not start on ${HOST}:${PORT}" >&2
+    cat /tmp/miniDB_benchmark.log >&2
+    exit 1
 fi
+
+redis-cli -h "${HOST}" -p "${PORT}" SET bench:get:key abc >/dev/null 2>&1 || true
+redis-cli -h "${HOST}" -p "${PORT}" SET bench:incr:key 0 >/dev/null 2>&1 || true
 
 tests=(ping set get incr)
 okCount=0

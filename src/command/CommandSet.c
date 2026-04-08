@@ -139,6 +139,8 @@ int cmdSinter(Server *srv, const Request *req, RespBuf *buf) {
         respWrongType(buf);
         return 1;
     }
+    Object *others[PROTO_MAX_ARGS] = {0};
+    int nOthers = 0;
     for (int i = 2; i < req->argc; i++) {
         Object *o = storeGet(srv->store, req->argv[i]);
         if (o && o->type != OBJ_SET) {
@@ -149,13 +151,14 @@ int cmdSinter(Server *srv, const Request *req, RespBuf *buf) {
             respArrHdr(buf, 0);
             return 1;
         }
+        others[nOthers++] = o;
     }
     size_t count = 0;
     for (size_t bucket = 0; bucket < base->hash.nbuckets; bucket++) {
         for (struct HEntry *e = base->hash.buckets[bucket]; e; e = e->next) {
             int inAll = 1;
-            for (int i = 2; i < req->argc; i++) {
-                Object *o = storeGet(srv->store, req->argv[i]);
+            for (int i = 0; i < nOthers; i++) {
+                Object *o = others[i];
                 size_t ignored;
                 if (hashHget(&o->hash, e->key, &ignored) == NULL) {
                     inAll = 0;
@@ -169,8 +172,8 @@ int cmdSinter(Server *srv, const Request *req, RespBuf *buf) {
     for (size_t bucket = 0; bucket < base->hash.nbuckets; bucket++) {
         for (struct HEntry *e = base->hash.buckets[bucket]; e; e = e->next) {
             int inAll = 1;
-            for (int i = 2; i < req->argc; i++) {
-                Object *o = storeGet(srv->store, req->argv[i]);
+            for (int i = 0; i < nOthers; i++) {
+                Object *o = others[i];
                 size_t ignored;
                 if (hashHget(&o->hash, e->key, &ignored) == NULL) {
                     inAll = 0;

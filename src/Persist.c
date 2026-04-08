@@ -7,11 +7,35 @@
 #include "../headers/Object.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+#define PERSIST_MAX_BLOB_SIZE (16u * 1024u * 1024u)
+#define PERSIST_MAX_ENTRIES (1000000u)
+#define PERSIST_MAX_COLLECTION_ENTRIES (1000000u)
+
+static int snapshotPathIsSafe(const char *path) {
+    if (!path || path[0] == '\0') return 0;
+
+    size_t len = strlen(path);
+    if (len == 0 || len >= PATH_MAX - 5) return 0;
+
+    for (size_t i = 0; i < len; i++) {
+        unsigned char ch = (unsigned char)path[i];
+        if (ch < 32 || ch == 127) return 0;
+    }
+
+    /* Reject parent-directory traversal segments. */
+    if (strstr(path, "../") || strstr(path, "/..") || strcmp(path, "..") == 0) return 0;
+
+    return 1;
+}
 
 /* ── Portable little-endian I/O helpers ─────────────────────────────────── */
 
@@ -62,6 +86,7 @@ static int readI64(FILE *f, int64_t *v) {
 static int readBlob(FILE *f, char **out, uint32_t *outLen) {
     uint32_t len;
     if (readU32(f, &len)) return -1;
+    if (len > PERSIST_MAX_BLOB_SIZE) return -1;
     *out = malloc(len + 1);
     if (!*out) return -1;
     if (len && fread(*out, 1, len, f) != len) {
@@ -83,53 +108,143 @@ typedef struct {
     int64_t wallOffsetMs;
 } SaveCtx;
 
+static int saveStringPayload(FILE *f, const Object *o) {
+    return writeBlob(f, o->str.ptr, (uint32_t)o->str.len);
+}
+
+static int saveListPayload(FILE *f, const Object *o) {
+    if (writeU32(f, (uint32_t)o->list.size)) return -1;
+    for (ListNode *n = o->list.head; n; n = n->next)
+        if (writeBlob(f, n->data, (uint32_t)n->len)) return -1;
+    return 0;
+}
+
+static int saveHashPayload(FILE *f, const Object *o) {
+    const KVHash *h = &o->hash;
+    if (writeU32(f, (uint32_t)h->size)) return -1;
+    for (size_t i = 0; i < h->nbuckets; i++) {
+        for (struct HEntry *e = h->buckets[i]; e; e = e->next) {
+            if (writeBlob(f, e->key, (uint32_t)strlen(e->key))) return -1;
+            if (writeBlob(f, e->val, (uint32_t)e->vlen)) return -1;
+        }
+    }
+    return 0;
+}
+
+static int saveObjectPayload(FILE *f, const Object *o) {
+    if (o->type == OBJ_STRING) return saveStringPayload(f, o);
+    if (o->type == OBJ_LIST) return saveListPayload(f, o);
+    if (o->type == OBJ_HASH || o->type == OBJ_SET) return saveHashPayload(f, o);
+    return -1;
+}
+
 static void saveEntry(const char *key, const Object *o, void *ud) {
     SaveCtx *ctx = ud;
     if (ctx->err) return;
 
-#define CHK(expr)                                                                                                      \
-    do {                                                                                                               \
-        if ((expr)) {                                                                                                  \
-            ctx->err = 1;                                                                                              \
-            return;                                                                                                    \
-        }                                                                                                              \
-    } while (0)
+    if (writeU8(ctx->f, (uint8_t)o->type)) {
+        ctx->err = 1;
+        return;
+    }
+    if (writeBlob(ctx->f, key, (uint32_t)strlen(key))) {
+        ctx->err = 1;
+        return;
+    }
 
-    CHK(writeU8(ctx->f, (uint8_t)o->type));
-    CHK(writeBlob(ctx->f, key, (uint32_t)strlen(key)));
     int64_t expireOnDisk = 0;
     if (o->expireMs > 0) expireOnDisk = o->expireMs + ctx->wallOffsetMs;
-    CHK(writeI64(ctx->f, expireOnDisk));
-
-    switch (o->type) {
-    case OBJ_STRING:
-        CHK(writeBlob(ctx->f, o->str.ptr, (uint32_t)o->str.len));
-        break;
-
-    case OBJ_LIST: {
-        CHK(writeU32(ctx->f, (uint32_t)o->list.size));
-        for (ListNode *n = o->list.head; n; n = n->next) CHK(writeBlob(ctx->f, n->data, (uint32_t)n->len));
-        break;
+    if (writeI64(ctx->f, expireOnDisk)) {
+        ctx->err = 1;
+        return;
     }
 
-    case OBJ_HASH:
-    case OBJ_SET: {
-        KVHash *h = (KVHash *)&o->hash;
-        CHK(writeU32(ctx->f, (uint32_t)h->size));
-        for (size_t i = 0; i < h->nbuckets; i++)
-            for (struct HEntry *e = h->buckets[i]; e; e = e->next) {
-                CHK(writeBlob(ctx->f, e->key, (uint32_t)strlen(e->key)));
-                CHK(writeBlob(ctx->f, e->val, (uint32_t)e->vlen));
-            }
-        break;
+    if (saveObjectPayload(ctx->f, o)) {
+        ctx->err = 1;
+        return;
     }
-    }
-#undef CHK
+
     ctx->count++;
+}
+
+static Object *loadStringObject(FILE *f) {
+    char *val = NULL;
+    uint32_t vlen = 0;
+    if (readBlob(f, &val, &vlen)) return NULL;
+    Object *o = objStrNew(val, vlen);
+    free(val);
+    return o;
+}
+
+static Object *loadListObject(FILE *f) {
+    uint32_t n = 0;
+    if (readU32(f, &n) || n > PERSIST_MAX_COLLECTION_ENTRIES) return NULL;
+
+    Object *o = objListNew();
+    if (!o) return NULL;
+
+    for (uint32_t j = 0; j < n; j++) {
+        char *elem = NULL;
+        uint32_t elen = 0;
+        if (readBlob(f, &elem, &elen)) {
+            objFree(o);
+            return NULL;
+        }
+        if (!listRpush(&o->list, elem, elen)) {
+            free(elem);
+            objFree(o);
+            return NULL;
+        }
+        free(elem);
+    }
+
+    return o;
+}
+
+static Object *loadHashObject(FILE *f, ObjType type) {
+    uint32_t n = 0;
+    if (readU32(f, &n) || n > PERSIST_MAX_COLLECTION_ENTRIES) return NULL;
+
+    Object *o = (type == OBJ_HASH) ? objHashNew() : objSetNew();
+    if (!o) return NULL;
+
+    for (uint32_t j = 0; j < n; j++) {
+        char *hk = NULL;
+        char *hv = NULL;
+        uint32_t hkl = 0;
+        uint32_t hvl = 0;
+        if (readBlob(f, &hk, &hkl) || readBlob(f, &hv, &hvl)) {
+            free(hk);
+            free(hv);
+            objFree(o);
+            return NULL;
+        }
+        if (hashHset(&o->hash, hk, hv, hvl) < 0) {
+            free(hk);
+            free(hv);
+            objFree(o);
+            return NULL;
+        }
+        free(hk);
+        free(hv);
+    }
+
+    return o;
+}
+
+static Object *loadObjectPayload(FILE *f, uint8_t type) {
+    if (type == OBJ_STRING) return loadStringObject(f);
+    if (type == OBJ_LIST) return loadListObject(f);
+    if (type == OBJ_HASH) return loadHashObject(f, OBJ_HASH);
+    if (type == OBJ_SET) return loadHashObject(f, OBJ_SET);
+    return NULL;
 }
 
 int persistSave(const Server *srv) {
     if (!srv->snapshotPath) return 0;
+    if (!snapshotPathIsSafe(srv->snapshotPath)) {
+        errno = EINVAL;
+        return -1;
+    }
 
     /* Write to tmp file first, then rename for atomicity */
     size_t tmplen = strlen(srv->snapshotPath) + 5;
@@ -137,8 +252,15 @@ int persistSave(const Server *srv) {
     if (!tmppath) return -1;
     snprintf(tmppath, tmplen, "%s.tmp", srv->snapshotPath);
 
-    FILE *f = fopen(tmppath, "wb");
+    int tfd = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (tfd < 0) {
+        free(tmppath);
+        return -1;
+    }
+
+    FILE *f = fdopen(tfd, "wb");
     if (!f) {
+        close(tfd);
         free(tmppath);
         return -1;
     }
@@ -190,6 +312,10 @@ err:
 
 int persistLoad(Server *srv) {
     if (!srv->snapshotPath) return 0;
+    if (!snapshotPathIsSafe(srv->snapshotPath)) {
+        errno = EINVAL;
+        return -1;
+    }
 
     FILE *f = fopen(srv->snapshotPath, "rb");
     if (!f) { return (errno == ENOENT) ? 1 : -1; }
@@ -202,6 +328,7 @@ int persistLoad(Server *srv) {
 
     uint64_t count;
     if (readU64(f, &count)) goto err;
+    if (count > PERSIST_MAX_ENTRIES) goto err;
 
     int64_t wallNow = wallClockMs();
     int64_t monoNow = nowMs();
@@ -220,95 +347,12 @@ int persistLoad(Server *srv) {
             goto err;
         }
 
-        switch ((ObjType)type) {
-        case OBJ_STRING: {
-            char *val;
-            uint32_t vlen;
-            if (readBlob(f, &val, &vlen)) {
-                free(key);
-                goto err;
-            }
-            o = objStrNew(val, vlen);
-            free(val);
-            break;
-        }
-        case OBJ_LIST: {
-            uint32_t n;
-            if (readU32(f, &n)) {
-                free(key);
-                goto err;
-            }
-            o = objListNew();
-            if (!o) {
-                free(key);
-                goto err;
-            }
-            for (uint32_t j = 0; j < n; j++) {
-                char *elem;
-                uint32_t elen;
-                if (readBlob(f, &elem, &elen)) {
-                    free(key);
-                    objFree(o);
-                    goto err;
-                }
-                if (!listRpush(&o->list, elem, elen)) {
-                    free(elem);
-                    free(key);
-                    objFree(o);
-                    goto err;
-                }
-                free(elem);
-            }
-            break;
-        }
-        case OBJ_HASH:
-        case OBJ_SET: {
-            uint32_t n;
-            if (readU32(f, &n)) {
-                free(key);
-                goto err;
-            }
-            if (type == OBJ_HASH) o = objHashNew();
-            else o = objSetNew();
-            if (!o) {
-                free(key);
-                goto err;
-            }
-            for (uint32_t j = 0; j < n; j++) {
-                char *hk, *hv;
-                uint32_t hkl, hvl;
-                if (readBlob(f, &hk, &hkl)) {
-                    free(key);
-                    objFree(o);
-                    goto err;
-                }
-                if (readBlob(f, &hv, &hvl)) {
-                    free(key);
-                    free(hk);
-                    objFree(o);
-                    goto err;
-                }
-                if (hashHset(&o->hash, hk, hv, hvl) < 0) {
-                    free(key);
-                    free(hk);
-                    free(hv);
-                    objFree(o);
-                    goto err;
-                }
-                free(hk);
-                free(hv);
-            }
-            break;
-        }
-        default:
-            free(key);
-            goto err;
-        }
-
+        o = loadObjectPayload(f, type);
         if (!o) {
             free(key);
             goto err;
         }
+
         if (exp > 0) o->expireMs = exp - wallNow + monoNow;
         else o->expireMs = 0;
         /* Skip expired entries on load — don't pollute the store. */

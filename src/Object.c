@@ -9,6 +9,8 @@
 #include <string.h>
 #include <time.h>
 
+#define OBJ_MAX_BLOB_SIZE (16u * 1024u * 1024u)
+
 /* ── Time ───────────────────────────────────────────────────────────────── */
 
 int64_t nowMs(void) {
@@ -26,6 +28,8 @@ int64_t wallClockMs(void) {
 /* ── Object lifecycle ───────────────────────────────────────────────────── */
 
 Object *objStrNew(const char *s, size_t len) {
+    if (len > OBJ_MAX_BLOB_SIZE || len + 1 < len) return NULL;
+
     Object *o = calloc(1, sizeof(*o));
     if (!o) return NULL;
     o->type = OBJ_STRING;
@@ -124,6 +128,8 @@ void objFree(Object *o) {
 /* ── List operations ────────────────────────────────────────────────────── */
 
 static ListNode *listNodeNew(const char *data, size_t len) {
+    if (len > OBJ_MAX_BLOB_SIZE || len + 1 < len) return NULL;
+
     ListNode *n = calloc(1, sizeof(*n));
     if (!n) return NULL;
     n->data = malloc(len + 1);
@@ -224,6 +230,8 @@ static void hashResize(KVHash *h, size_t newN) {
 }
 
 int hashHset(KVHash *h, const char *key, const char *val, size_t vlen) {
+    if (vlen > OBJ_MAX_BLOB_SIZE || vlen + 1 < vlen) return -1;
+
     uint32_t idx = hashFnv1a32(key) % (uint32_t)h->nbuckets;
 
     /* Update existing entry if key already present */
